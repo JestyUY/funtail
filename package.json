@@ -9,18 +9,29 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^0.0.30",
+    "@auth/drizzle-adapter": "^1.4.1",
+    "@next/env": "^14.2.5",
+    "@vercel/postgres": "^0.9.0",
+    "ai": "^3.2.22",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.32.0",
+    "next": "14.2.5",
+    "next-auth": "^5.0.0-beta.19",
+    "pg": "^8.12.0",
     "react": "^18",
     "react-dom": "^18",
-    "next": "14.2.5"
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "drizzle-kit": "^0.23.0",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.5"
+    "typescript": "^5"
   }
 }
