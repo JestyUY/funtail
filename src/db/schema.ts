@@ -5,6 +5,7 @@ import {
     text,
     primaryKey,
     integer,
+    uuid,
   } from "drizzle-orm/pg-core"
 
   
@@ -89,3 +90,39 @@ import {
       }),
     })
   )
+
+// Define the Albums table
+export const albums = pgTable("album", {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  });
+  
+  // Define the Images table
+  export const images = pgTable("image", {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    albumId: uuid("album_id")
+      .notNull()
+      .references(() => albums.id, { onDelete: "cascade" }),
+    optimizedUrl: text("optimized_url").notNull(),
+    altText: text("alt_text"), // Optional
+    tags: text("tags"), // Optional JSON string to store the tags
+    size: integer("size"), // Optional
+    width: integer("width"), // Optional
+    height: integer("height"), // Optional
+    format: text("format"), // Optional
+    quality: integer("quality"), // Optional
+    rotation: integer("rotation"), // Optional
+    compressionLevel: integer("compression_level"), // Optional
+    grayscale: boolean("grayscale"), // Optional
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+  });
