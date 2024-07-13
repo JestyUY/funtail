@@ -8,6 +8,12 @@ export default function SignInBtnAuto() {
     const pathname = usePathname();
     const router = useRouter();
 
+    const handleSignOut = async () => {
+        await signOut({ redirect: false });
+        router.push('/');
+      };
+    
+
     if (pathname === '/signin-auto') {
         return null; // Don't show anything on the sign-in page
     }
@@ -17,7 +23,7 @@ export default function SignInBtnAuto() {
             <div className="gap-2 flex items-center">
                 <span className="text-white font-thin"> signed in as {session.user?.name}</span>
                 <button 
-                    onClick={() => signOut()} 
+                    onClick={handleSignOut} 
                     className="border p-1 rounded-md bg-indigo-100 hover:bg-indigo-200 text-black"
                 >
                     Sign Out
