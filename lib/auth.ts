@@ -6,6 +6,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import { db } from "../src/db"
 import GitHubProvider from "next-auth/providers/github"
 
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
   providers: [
@@ -13,6 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.AUTH_GITHUB_ID,
       clientSecret: process.env.AUTH_GITHUB_SECRET,
     }),
+ 
   ],
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
