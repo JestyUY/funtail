@@ -4,10 +4,6 @@ import { put } from "@vercel/blob";
 import { saveImageInfoToDatabase } from "../../../src/db/saveImageInfoToDatabase";
 import { createAlbum } from "@/src/db/createAlbum";
 
-export const config = {
-  runtime: "edge",
-};
-
 export async function POST(req: NextRequest) {
   try {
     const { albumName, images, albumId, userId } = await req.json();

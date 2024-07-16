@@ -4,10 +4,6 @@ import { z } from "zod";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 
-export const config = {
-  runtime: "edge",
-};
-
 const sizeSchema = z
   .object({
     width: z.any(),
