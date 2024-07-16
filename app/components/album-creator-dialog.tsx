@@ -9,6 +9,7 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [albumName, setAlbumName] = useState(""); // Add state for album name
   const [images, setImages] = useState<ImageData[]>([]);
+  const [optimized, setOptimized] = useState(false);
 
   const optimizeImages = async () => {
     // Convert blob URLs to base64
@@ -91,6 +92,8 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
 
       if (!response.ok)
         throw new Error("Failed to get optimization suggestions");
+
+      if (response.ok) setOptimized(true);
 
       const suggestions = await response.json();
       setImages((prevImages) =>
@@ -178,15 +181,13 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
 
   return (
     <>
-      <header className="text-white flex w-full justify-between px-10 py-2">
-        <div></div>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="border rounded-md border-indigo-200 p-1 bg-indigo-800 bg-opacity-5"
-        >
-          New Album
-        </button>
-      </header>
+      <div
+        onClick={() => setIsOpen(true)}
+        className="border-2 rounded-md flex flex-col w-[300px] h-[300px] items-center bg-java-700 border-java-800 hover:cursor-pointer"
+      >
+        <span className="text-2xl text-java-200 mt-4">New Album</span>
+        <span className="text-[150px] text-java-200">+</span>
+      </div>
 
       <Dialog
         isOpen={isOpen}
@@ -324,14 +325,16 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
               Cancel
             </button>
             <button
+              disabled={images.length === 0 || optimized}
               onClick={optimizeImages}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Optimize images
             </button>
             <button
               onClick={saveImages}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md  disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!optimized || images.length === 0 || !albumName}
             >
               Save Album
             </button>

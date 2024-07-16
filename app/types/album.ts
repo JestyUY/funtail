@@ -27,21 +27,10 @@ export interface UserCustomization {
   grayscale: boolean;
 }
 
-/*
- setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    size: {
-                                      ...img.aiSuggestions?.size,
-                                      width: width,
-                                    },
-                                  },
-                                } as ImageData; // Explicitly cast to ImageData
-                              }
-                              return img;
-                            })
-*/
+export interface Album {
+  createdAt: Date;
+  id: string;
+  name: string;
+  updatedAt: Date;
+  userId: string;
+}
