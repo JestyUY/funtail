@@ -16,18 +16,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth()
+  const session = await auth();
   return (
     <SessionProvider session={session}>
-    <html lang="en">
-      
-      <body className={`${inter.className} absolute top-0 z-[-2] h-screen w-screen overflow-hidden bg-[#000000] bg-[radial-gradient(#ffffff33_1px,#00091d_1px)] bg-[size:20px_20px]  `}>
-   
-
-      <MainHeader/>
-         {children}
-     </body>
-    </html>
+      <html lang="en">
+        <body
+          className={`${inter.className} absolute top-0 z-[-2] h-screen w-screen overflow-hiddenD bg-[#000000] bg-[radial-gradient(#ffffff33_1px,#00091d_1px)] bg-[size:20px_20px]  `}
+        >
+          <MainHeader />
+          {children}
+        </body>
+      </html>
     </SessionProvider>
   );
 }
