@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { selectAlbum } from "../../../src/db/selectAlbum";
 import { auth } from "@/lib/auth";
+import { selectPicturesByAlbumId } from "@/src/db/selectPicturedByAlbumId";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -18,7 +19,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const albums = await selectAlbum(userId);
-    return NextResponse.json(albums);
+
+    // Map over albums to add pictures to each album
+    const albumsWithPictures = await Promise.all(
+      albums.map(async (album) => {
+        const pictures = await selectPicturesByAlbumId(album.id);
+        return {
+          ...album,
+          pictures,
+        };
+      })
+    );
+
+    return NextResponse.json({ albums: albumsWithPictures });
   } catch (error) {
     console.error("Error fetching albums:", error);
     return NextResponse.json(

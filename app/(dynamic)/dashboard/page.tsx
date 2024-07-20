@@ -12,8 +12,8 @@ export default async function Page() {
   }
 
   return (
-    <main className="flex p-8">
-      <Albums userId={session.user.id} />;
+    <main className="flex flex-col p-8 w-full h-screen overflow-auto pt-24 ">
+      <Albums userId={session.user.id} />
     </main>
   );
 }

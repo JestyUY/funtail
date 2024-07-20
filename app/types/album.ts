@@ -28,9 +28,27 @@ export interface UserCustomization {
 }
 
 export interface Album {
-  createdAt: Date;
+  createdAt: Date | null;
   id: string;
   name: string;
-  updatedAt: Date;
+  updatedAt: Date | null;
   userId: string;
+  pictures?: mergedImage[];
+}
+
+export interface mergedImage {
+  albumId: string;
+  altText: string | null;
+  compressionLevel: number | null;
+  format: string | null;
+  grayscale: boolean | null;
+  height: number | null;
+  id: string;
+  optimizedUrl: string;
+  quality: number | null;
+  rotation: number | null;
+  size: number | null;
+  tags: string | null;
+  updatedAt: Date | null;
+  width: number | null;
 }

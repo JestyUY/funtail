@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
             optimizedUrl: url,
             altText: suggestions.altText,
             tags: suggestions.tags.join(","),
-            size: buffer.length,
+            size: optimizedBuffer.length,
             width: suggestions.size.width,
             height: suggestions.size.height,
             format: suggestions.format,

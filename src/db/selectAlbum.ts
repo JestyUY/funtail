@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "./index";
 import { albums } from "./schema";
+import { Album } from "@/app/types/album";
 
 export async function selectAlbum(userId: string) {
   try {

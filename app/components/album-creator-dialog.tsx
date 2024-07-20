@@ -5,7 +5,13 @@ import Dialog from "./dialog-modal";
 import { ImageData, UserCustomization, AISuggestions } from "../types/album";
 import { sessions } from "@/src/db/schema";
 
-export default function AlbumCreatorDialog({ userId }: { userId: string }) {
+export default function AlbumCreatorDialog({
+  userId,
+  onAlbumCreated,
+}: {
+  userId: string;
+  onAlbumCreated: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [albumName, setAlbumName] = useState(""); // Add state for album name
   const [images, setImages] = useState<ImageData[]>([]);
@@ -33,7 +39,7 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
     
     2. Dimensions: 
        
-       - Recommend ideal dimensions for web display keeping the aspect ratio intact
+       -keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
        
     
     3. Image Format:
@@ -144,7 +150,7 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
       });
 
       if (!response.ok) throw new Error("Failed to save images");
-
+      if (response.ok) onAlbumCreated();
       const savedImages = await response.json();
       console.log("Images saved successfully", savedImages);
       setIsOpen(false);
@@ -185,7 +191,7 @@ export default function AlbumCreatorDialog({ userId }: { userId: string }) {
         onClick={() => setIsOpen(true)}
         className="border-2 rounded-md flex flex-col w-[300px] h-[300px] items-center bg-java-700 border-java-800 hover:cursor-pointer"
       >
-        <span className="text-2xl text-java-200 mt-4">New Album</span>
+        <span className="text- text-java-200 mt-4">New Album</span>
         <span className="text-[150px] text-java-200">+</span>
       </div>
 

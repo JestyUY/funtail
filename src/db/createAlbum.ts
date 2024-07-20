@@ -1,3 +1,5 @@
+"use server";
+
 import { db } from "./index";
 import { albums } from "./schema"; // Adjust the import path as needed
 
