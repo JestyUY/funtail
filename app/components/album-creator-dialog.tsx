@@ -16,7 +16,7 @@ export default function AlbumCreatorDialog({
   const [albumName, setAlbumName] = useState(""); // Add state for album name
   const [images, setImages] = useState<ImageData[]>([]);
   const [optimized, setOptimized] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
   const optimizeImages = async () => {
     // Convert blob URLs to base64
     const imageData = await Promise.all(
@@ -75,19 +75,6 @@ export default function AlbumCreatorDialog({
     
     Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
     `;
-    // const prompt = `
-    //   Analyze this image and suggest optimal settings for web use, considering:
-    //   1. Ideal dimensions for web display (max width 1920px, max height 1080px)
-    //   2. Best image format (JPEG, PNG, or WebP), whatever is most efficient
-    //   3. Optimal quality setting (0-100) balancing file size and visual quality
-    //   4. Compression level (1-9) if applicable
-    //   5. Whether grayscale would be beneficial
-    //   6. Any rotation needed (in degrees)
-    //   7. Relevant alt text for accessibility (max 125 characters)
-    //   8. Up to 5 relevant tags for categorization
-
-    //   Prioritize web performance while maintaining good visual quality.
-    // `;
 
     try {
       const response = await fetch("/api/om", {
@@ -201,13 +188,19 @@ export default function AlbumCreatorDialog({
         title="New Album"
       >
         <div className="flex flex-col space-y-4">
-          <input
-            type="text"
-            className="border border-indigo-900 p-2 rounded-md w-[300px]"
-            placeholder="Album Name"
-            value={albumName}
-            onChange={(e) => setAlbumName(e.target.value)} // Update albumName state on input change
-          />
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              className="border border-indigo-900 p-2 rounded-md w-[300px]"
+              placeholder="Album Name"
+              value={albumName}
+              onChange={(e) => setAlbumName(e.target.value)} // Update albumName state on input change
+            />
+            {!albumName ? (
+              <span className="text-red-500">Requiered*</span>
+            ) : null}
+            {error && <span className="text-red-500">{error}</span>}
+          </div>
           <div className="p-2 border border-dashed border-indigo-300 rounded-md">
             <input
               type="file"

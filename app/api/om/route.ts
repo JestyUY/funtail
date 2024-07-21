@@ -3,6 +3,17 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
+import {
+  lastOptimization,
+  optimizationQuantity,
+  setResetOptimization,
+} from "@/src/actions/addDateAndTimesAI";
+import { auth } from "@/lib/auth";
+import { selecUserInfo } from "@/src/actions/selectUserInfo";
+import { User } from "@/app/types/user";
+
+const DAILY_OPTIMIZATION_LIMIT = 26;
+const HOURS_UNTIL_RESET = 24;
 
 const sizeSchema = z
   .object({
@@ -32,37 +43,96 @@ const optimizationSchema = z.object({
 
 type OptimizationSchemaType = z.infer<typeof optimizationSchema>;
 
-export async function POST(req: Request) {
-  const { images, prompt } = await req.json();
+const checkOptimizationLimit = (
+  userInfo: User,
+  imagesLength: number
+): boolean => {
+  return (
+    userInfo.totalOptimizations !== null &&
+    userInfo.totalOptimizations !== undefined &&
+    userInfo.totalOptimizations + imagesLength >= DAILY_OPTIMIZATION_LIMIT
+  );
+};
 
-  const suggestions = await Promise.all(
-    images.map(async (imageData: string) => {
-      const base64Image =
-        typeof imageData === "string"
-          ? imageData.replace(/^data:image\/\w+;base64,/, "")
+const checkResetTime = async (
+  userInfo: User,
+  userId: string
+): Promise<boolean> => {
+  if (userInfo.lastOptimizationReset) {
+    const lastOptimizationReset = new Date(userInfo.lastOptimizationReset);
+    const now = new Date();
+    const diffHours =
+      (now.getTime() - lastOptimizationReset.getTime()) / (1000 * 60 * 60);
+
+    if (diffHours >= HOURS_UNTIL_RESET) {
+      await setResetOptimization(userId);
+      console.log("Reset optimization", "Hours since last reset:", diffHours);
+      return true;
+    }
+  }
+  return false;
+};
+
+export async function POST(req: Request) {
+  try {
+    const { images, prompt } = await req.json();
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const [userInfo]: User[] = await selecUserInfo(session.user.id);
+    const imagesLength = images.length;
+
+    const shouldReset = await checkResetTime(userInfo, session.user.id);
+    if (shouldReset) {
+      return new Response("Optimization count has been reset", { status: 200 });
+    }
+
+    if (checkOptimizationLimit(userInfo, imagesLength)) {
+      return new Response("You have reached the limit of optimizations", {
+        status: 401,
+      });
+    }
+
+    const suggestions = await Promise.all(
+      images.map(async (imageData: string) => {
+        const base64Image = imageData.startsWith("data:image")
+          ? imageData.split(",")[1]
           : imageData;
 
-      const { object: suggestion } =
-        await generateObject<OptimizationSchemaType>({
-          model: openai("gpt-4o-2024-05-13"),
-          maxTokens: 1500,
-          schema: optimizationSchema,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image", image: base64Image },
-              ],
-            },
-          ],
-        });
+        const { object: suggestion } =
+          await generateObject<OptimizationSchemaType>({
+            model: openai("gpt-4o-2024-05-13"),
+            maxTokens: 1500,
+            schema: optimizationSchema,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image", image: base64Image },
+                ],
+              },
+            ],
+          });
 
-      return suggestion;
-    })
-  );
+        return suggestion;
+      })
+    );
 
-  return new Response(JSON.stringify(suggestions), {
-    headers: { "Content-Type": "application/json" },
-  });
+    await Promise.all([
+      optimizationQuantity(session.user.id, suggestions.length),
+      lastOptimization(session.user.id),
+    ]);
+
+    return new Response(JSON.stringify(suggestions), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Error in POST request:", error);
+    return new Response("An error occurred while processing your request", {
+      status: 500,
+    });
+  }
 }

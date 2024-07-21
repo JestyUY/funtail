@@ -41,6 +41,32 @@ export default function Albums({ userId }: { userId: string }) {
     fetchAlbumsData();
   }, [fetchAlbumsData]);
 
+  const handleDeleteImage = useCallback((albumId: string, imageId: string) => {
+    setAlbums((prevAlbums) =>
+      prevAlbums.map((album) =>
+        album.id === albumId
+          ? {
+              ...album,
+              pictures:
+                album.pictures?.filter((pic) => pic.id !== imageId) || [],
+            }
+          : album
+      )
+    );
+
+    // If you're keeping a separate state for the selected album, update it as well
+    setSelectedAlbum((prevAlbum) => {
+      if (prevAlbum && prevAlbum.id === albumId) {
+        return {
+          ...prevAlbum,
+          pictures:
+            prevAlbum.pictures?.filter((pic) => pic.id !== imageId) || [],
+        };
+      }
+      return prevAlbum;
+    });
+  }, []);
+
   const handleAlbumDeleted = useCallback((deletedAlbumId: string) => {
     setAlbums((prevAlbums) =>
       prevAlbums.filter((album) => album.id !== deletedAlbumId)
@@ -69,6 +95,7 @@ export default function Albums({ userId }: { userId: string }) {
         handleClose={handleClose}
         album={selectedAlbum}
         handleAlbumDeleted={handleAlbumDeleted}
+        handleDeleteImage={handleDeleteImage}
       />
 
       {sortedAlbums.map((album) => (

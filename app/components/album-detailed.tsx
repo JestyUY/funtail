@@ -11,18 +11,26 @@ export default function AlbumDetailed({
   handleClose,
   album,
   handleAlbumDeleted,
+  handleDeleteImage,
 }: {
   isOpen: boolean;
   handleClose: () => void;
   album?: Album | null;
   handleAlbumDeleted: (albumId: string) => void;
+  handleDeleteImage: (albumId: string, imageId: string) => void;
 }) {
-  const [copyState, setCopyState] = useState(false);
+  const [copyStates, setCopyStates] = useState<Record<string, boolean>>({});
   const modalRef = useRef<HTMLDialogElement>(null);
 
+  const handleCopy = (pictureId: string, url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopyStates((prev) => ({ ...prev, [pictureId]: true }));
+      setTimeout(() => {
+        setCopyStates((prev) => ({ ...prev, [pictureId]: false }));
+      }, 3000); // Reset after 2 seconds
+    });
+  };
   useEffect(() => {
-    setCopyState(false);
-
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         handleClose();
@@ -60,13 +68,21 @@ export default function AlbumDetailed({
       }
     }
   };
-  const handleDeleteImage = async (imageId: string) => {
+  const handleDeleteImages = async (imageId: string) => {
+    console.log("Deleting image:", imageId); // Debug log
     const result = await deleteImage(imageId);
     if (result.success) {
+      console.log("Delete successful"); // Debug log
       if (album?.pictures?.length === 1) {
         handleDeleteAlbum();
+      } else {
+        // Call the prop function to update parent state
+        if (album) {
+          handleDeleteImage(album.id, imageId);
+        }
       }
     } else {
+      console.error("Delete failed:", result.message); // Debug log
       alert(result.message);
     }
   };
@@ -80,7 +96,7 @@ export default function AlbumDetailed({
                 Remove
               </button>
               {album?.pictures &&
-                album.pictures.map((picture, index) => (
+                album.pictures.map((picture) => (
                   <li
                     key={picture.id}
                     className="w-full min-h-40 flex p-2  items-center"
@@ -96,8 +112,14 @@ export default function AlbumDetailed({
                         <span className="border rounded-md p-1">
                           {picture.optimizedUrl}{" "}
                         </span>
-                        <span onClick={() => setCopyState(true)}>
-                          <CopyIcon isCopied={copyState} />
+                        <span
+                          onClick={() =>
+                            handleCopy(picture.id, picture.optimizedUrl)
+                          }
+                        >
+                          <CopyIcon
+                            isCopied={copyStates[picture.id] || false}
+                          />
                         </span>
                       </span>
                       <span className="text-sm border rounded-md p-1 inline-block">
@@ -114,7 +136,7 @@ export default function AlbumDetailed({
                         kb
                       </span>
                     </div>
-                    <button onClick={() => handleDeleteImage(picture.id)}>
+                    <button onClick={() => handleDeleteImages(picture.id)}>
                       Remove image
                     </button>
                   </li>
