@@ -3,13 +3,13 @@
 module.exports = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "2mb",
+      bodySizeLimit: "40mb",
     },
   },
   api: {
     bodyParser: {
       json: {
-        sizeLimit: "50mb",
+        sizeLimit: "40mb",
       },
     },
   },
