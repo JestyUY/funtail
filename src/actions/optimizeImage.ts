@@ -75,14 +75,22 @@ const checkResetTime = async (
 };
 
 export async function optimizeImage(images: string[], prompt: string) {
+  if (!Array.isArray(images) || images.length === 0) {
+    throw new Error("Images array is invalid");
+  }
   try {
     const session = await auth();
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
 
-    const [userInfo]: User[] = await selecUserInfo(session.user.id);
     const imagesLength = images.length;
+
+    const userInfoArray: User[] = await selecUserInfo(session.user.id);
+    if (!userInfoArray || userInfoArray.length === 0) {
+      throw new Error("User information could not be retrieved");
+    }
+    const userInfo = userInfoArray[0];
 
     const shouldReset = await checkResetTime(userInfo, session.user.id);
     if (shouldReset) {
