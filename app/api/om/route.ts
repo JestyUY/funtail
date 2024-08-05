@@ -12,7 +12,7 @@ import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
 
-const DAILY_OPTIMIZATION_LIMIT = 100;
+const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
 
 const sizeSchema = z
