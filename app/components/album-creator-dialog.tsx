@@ -2,31 +2,57 @@
 
 import { useState, useRef, useEffect } from "react";
 import Dialog from "./dialog-modal";
-import { ImageData, UserCustomization, AISuggestions } from "../types/album";
-import { sessions } from "@/src/db/schema";
+import { optimizeImage } from "../../src/actions/optimizeImage"; // Adjust this import path as needed
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
+
+// Type definitions
+interface UserCustomization {
+  // Define properties as needed
+}
+
+interface AISuggestions {
+  altText: string;
+  tags: string[];
+  size: { width: number; height: number };
+  format: string;
+  quality: number;
+  rotation: number;
+  compressionLevel: number;
+  grayscale: boolean;
+}
+
+interface ImageData {
+  file: File;
+  preview: string;
+  aiSuggestions?: AISuggestions;
+  userCustomization?: UserCustomization;
+}
+
+interface AlbumCreatorDialogProps {
+  userId: string;
+  onAlbumCreated: () => void;
+}
 
 export default function AlbumCreatorDialog({
   userId,
   onAlbumCreated,
-}: {
-  userId: string;
-  onAlbumCreated: () => void;
-}) {
+}: AlbumCreatorDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [albumName, setAlbumName] = useState(""); // Add state for album name
+  const [albumName, setAlbumName] = useState("");
   const [images, setImages] = useState<ImageData[]>([]);
   const [optimized, setOptimized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const optimizeImages = async () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOptimizeImages = async () => {
     // Convert blob URLs to base64
     const imageData = await Promise.all(
       images.map(async (img) => {
         const response = await fetch(img.preview);
         const blob = await response.blob();
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
+          reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
@@ -75,53 +101,62 @@ export default function AlbumCreatorDialog({
     `;
 
     try {
-      const response = await fetch("/api/om", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: imageData, prompt }),
-      });
+      const suggestions = await optimizeImage(imageData, prompt);
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          alert(new Error("Unauthorized: Please log in to continue."));
-        } else if (response.status === 403) {
-          alert(new Error("You have reached the limit of optimizations."));
-        } else if (response.status === 400) {
-          alert(new Error("Invalid input data."));
-        } else if (response.status === 500) {
-          alert(
-            new Error(
-              "Server error: An error occurred while processing your request."
-            )
-          );
-        } else {
-          alert(new Error("Failed to get optimization suggestions."));
-        }
-      }
-
-      const suggestions = await response.json();
       setImages((prevImages) =>
-        prevImages.map((img, index) => ({
-          ...img,
-          aiSuggestions: suggestions[index],
-        }))
+        prevImages.map((img, index) => {
+          const suggestion = suggestions[index];
+          return {
+            ...img,
+            aiSuggestions: {
+              ...suggestion,
+              size: {
+                width:
+                  suggestion.size &&
+                  typeof suggestion.size === "object" &&
+                  "width" in suggestion.size
+                    ? Number(suggestion.size.width) || 0
+                    : 0,
+                height:
+                  suggestion.size &&
+                  typeof suggestion.size === "object" &&
+                  "height" in suggestion.size
+                    ? Number(suggestion.size.height) || 0
+                    : 0,
+              },
+            },
+          };
+        })
       );
       setOptimized(true);
     } catch (error) {
       console.error("Error optimizing images:", error);
+      if (error instanceof Error) {
+        if (error.message === "Unauthorized") {
+          setError("Unauthorized: Please log in to continue.");
+        } else if (
+          error.message === "You have reached the limit of optimizations"
+        ) {
+          setError("You have reached the limit of optimizations.");
+        } else if (error.message === "Invalid input data") {
+          setError("Invalid input data.");
+        } else {
+          setError("An error occurred while processing your request.");
+        }
+      }
     }
   };
 
   const saveImages = async () => {
-    const albumId = crypto.randomUUID(); // Generate one albumId for all images
+    const albumId = crypto.randomUUID();
 
     const imagesToSave = await Promise.all(
       images.map(async (img) => {
         const response = await fetch(img.preview);
         const blob = await response.blob();
-        const data = await new Promise((resolve, reject) => {
+        const data = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
+          reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
@@ -151,13 +186,11 @@ export default function AlbumCreatorDialog({
       const savedImages = await response.json();
       console.log("Images saved successfully", savedImages);
       setIsOpen(false);
-      // Update your state or perform any other actions with the saved image data
     } catch (error) {
       console.error("Error saving images:", error);
-      // Handle error (e.g., show error message to user)
+      setError("Failed to save images. Please try again.");
     }
   };
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -182,7 +215,9 @@ export default function AlbumCreatorDialog({
     setIsOpen(false);
     setOptimized(false);
     setAlbumName("");
+    setError(null);
   };
+
   const handleNewAlbum = async () => {
     const albumQuantity = await checkAlbumQuantity(userId);
 
@@ -526,7 +561,7 @@ export default function AlbumCreatorDialog({
             </button>
             <button
               disabled={images.length === 0 || optimized}
-              onClick={optimizeImages}
+              onClick={handleOptimizeImages}
               className="bg-java-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Optimize images
