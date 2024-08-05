@@ -1,17 +1,16 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+
+module.exports = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: "2mb",
     },
   },
   api: {
     bodyParser: {
       json: {
-        sizeLimit: '50mb',
+        sizeLimit: "50mb",
       },
     },
   },
 };
-
-export default nextConfig;
