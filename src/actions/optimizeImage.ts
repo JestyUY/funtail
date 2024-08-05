@@ -59,7 +59,9 @@ const checkResetTime = async (
   userId: string
 ): Promise<boolean> => {
   if (userInfo.lastOptimizationReset) {
-    const lastOptimizationReset = new Date(userInfo.lastOptimizationReset);
+    const lastOptimizationReset = userInfo.lastOptimizationReset
+      ? new Date(userInfo.lastOptimizationReset)
+      : new Date(0);
     const now = new Date();
     const diffHours =
       (now.getTime() - lastOptimizationReset.getTime()) / (1000 * 60 * 60);
@@ -107,23 +109,28 @@ export async function optimizeImage(images: string[], prompt: string) {
           ? imageData.split(",")[1]
           : imageData;
 
-        const { object: suggestion } =
-          await generateObject<OptimizationSchemaType>({
-            model: openai("gpt-4o"),
-            maxTokens: 1500,
-            schema: optimizationSchema,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  { type: "image", image: base64Image },
-                ],
-              },
-            ],
-          });
+        try {
+          const { object: suggestion } =
+            await generateObject<OptimizationSchemaType>({
+              model: openai("gpt-4o"),
+              maxTokens: 1500,
+              schema: optimizationSchema,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt },
+                    { type: "image", image: base64Image },
+                  ],
+                },
+              ],
+            });
 
-        return suggestion;
+          return suggestion;
+        } catch (generateError) {
+          console.error("Error generating suggestions:", generateError);
+          throw new Error("Failed to generate image suggestions");
+        }
       })
     );
 
