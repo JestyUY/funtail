@@ -1,4 +1,3 @@
-// app/components/dialog-modal.tsx
 "use client";
 
 import React from "react";
@@ -20,12 +19,9 @@ const Dialog: React.FC<DialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex ">
-      <div className="relative p-8 bg-gray-950  w-[80%] m-auto flex-col flex rounded-lg mt-8">
+      <div className="relative p-8 bg-gray-900  w-[80%] m-auto flex-col flex rounded-lg mt-8">
         <div className="flex justify-between items-center pb-3">
-          <h2 className="text-2xl font-bold">{title}</h2>
-          <button onClick={onClose} className="text-black close-modal">
-            ×
-          </button>
+          <h2 className="text-2xl font-bold text-white">{title}</h2>
         </div>
         <div className="flex justify-between flex-col">{children}</div>
       </div>

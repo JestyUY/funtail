@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "rate_limit_ip_idx" ON "rate_limits" USING btree ("ip");

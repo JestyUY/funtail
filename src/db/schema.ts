@@ -6,6 +6,7 @@ import {
   primaryKey,
   integer,
   uuid,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import type { AdapterAccountType } from "next-auth/adapters";
@@ -93,7 +94,21 @@ export const authenticators = pgTable(
   })
 );
 
-// Define the Albums table
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ip: text("ip").notNull(),
+    count: integer("count").notNull().default(0),
+    lastReset: timestamp("last_reset", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => {
+    return {
+      ipIdx: uniqueIndex("rate_limit_ip_idx").on(table.ip),
+    };
+  }
+);
+
 export const albums = pgTable("album", {
   id: uuid("id")
     .primaryKey()
@@ -104,6 +119,9 @@ export const albums = pgTable("album", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  exportId: uuid("export_id")
+    .notNull()
+    .$defaultFn(() => crypto.randomUUID()),
 });
 
 // Define the Images table

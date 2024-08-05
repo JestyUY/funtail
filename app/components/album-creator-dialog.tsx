@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Dialog from "./dialog-modal";
 import { ImageData, UserCustomization, AISuggestions } from "../types/album";
 import { sessions } from "@/src/db/schema";
+import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
 
 export default function AlbumCreatorDialog({
   userId,
@@ -33,47 +34,44 @@ export default function AlbumCreatorDialog({
     );
 
     const prompt = `
-    Analyze this specific image in detail and provide optimized settings for web use. Consider the following aspects:
-    
-    1. Image Content: Describe the main subject and key elements of the image short answer Max  characters 15
-    
-    2. Dimensions: 
-       
-       -keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
-       
-    
-    3. Image Format:
-       
-       - Recommend the best format (webP,PNG or JPG) for a minimum file size and optimal visual quality
-       
-    
-    4. Quality and Compression:
-       - Suggest an optimal quality setting (0-100)
-       - Recommend a compression level (1-9) if applicable
-       
-    
-    5. Color Treatment:
-       - Analyze the current color scheme
-       - Would grayscale be beneficial? Why or why not?
-       - Any other color optimizations?
-    
-    6. Orientation:
-       - Is the image correctly oriented?
-       - If not, suggest rotation in degrees
-    
-    7. Accessibility:
-       - Provide a relevant and descriptive alt text (max  characters) for accessibility purposes 
-       - Explain key elements that should be conveyed in the alt text
-    
-    8. Categorization:
-       - Suggest up to 5 relevant tags based on the image content
-       - Explain why each tag is relevant
-    
-    9. Special Considerations:
-       - Any unique characteristics of this image that affect optimization?
-       - Are there any areas of the image that require special attention for web display?
-    
-    Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
+      Analyze this specific image in detail and provide optimized settings for web use. Consider the following aspects:
+      
+      1. Image Content: Describe the main subject and key elements of the image short answer Max characters 15
+      
+      2. Dimensions: 
+         
+         - keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
+         
+      3. Image Format:
+         
+         - Recommend the best format (webP, PNG or JPG) for a minimum file size and optimal visual quality
+         
+      4. Quality and Compression:
+         - Suggest an optimal quality setting (0-100)
+         - Recommend a compression level (1-9) if applicable
+         
+      5. Color Treatment:
+         - Analyze the current color scheme
+         - Would grayscale be beneficial? Why or why not?
+         - Any other color optimizations?
+      
+      6. Orientation:
+         - Is the image correctly oriented?
+         - If not, suggest rotation in degrees
+      
+      7. Accessibility:
+         - Provide a relevant and descriptive alt text (max characters) for accessibility purposes 
+         - Explain key elements that should be conveyed in the alt text
+      
+      8. Categorization:
+         - Suggest up to 5 relevant tags based on the image content
+         - Explain why each tag is relevant
+      
+      9. Special Considerations:
+         - Any unique characteristics of this image that affect optimization?
+         - Are there any areas of the image that require special attention for web display?
+      
+      Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
     `;
 
     try {
@@ -83,10 +81,23 @@ export default function AlbumCreatorDialog({
         body: JSON.stringify({ images: imageData, prompt }),
       });
 
-      if (!response.ok)
-        throw new Error("Failed to get optimization suggestions");
-
-      if (response.ok) setOptimized(true);
+      if (!response.ok) {
+        if (response.status === 401) {
+          alert(new Error("Unauthorized: Please log in to continue."));
+        } else if (response.status === 403) {
+          alert(new Error("You have reached the limit of optimizations."));
+        } else if (response.status === 400) {
+          alert(new Error("Invalid input data."));
+        } else if (response.status === 500) {
+          alert(
+            new Error(
+              "Server error: An error occurred while processing your request."
+            )
+          );
+        } else {
+          alert(new Error("Failed to get optimization suggestions."));
+        }
+      }
 
       const suggestions = await response.json();
       setImages((prevImages) =>
@@ -95,10 +106,9 @@ export default function AlbumCreatorDialog({
           aiSuggestions: suggestions[index],
         }))
       );
-      console.log(suggestions);
+      setOptimized(true);
     } catch (error) {
       console.error("Error optimizing images:", error);
-      // Handle error (e.g., show error message to user)
     }
   };
 
@@ -170,12 +180,23 @@ export default function AlbumCreatorDialog({
   const handleCancelClick = () => {
     setImages([]);
     setIsOpen(false);
+    setOptimized(false);
+    setAlbumName("");
   };
+  const handleNewAlbum = async () => {
+    const albumQuantity = await checkAlbumQuantity(userId);
 
+    if (albumQuantity >= 5) {
+      setError("You have reached the maximum number of albums allowed.");
+      return;
+    } else {
+      setIsOpen(true);
+    }
+  };
   return (
     <>
       <div
-        onClick={() => setIsOpen(true)}
+        onClick={handleNewAlbum}
         className="border-2 rounded-md flex flex-col w-[300px] h-[300px] items-center bg-java-700 border-java-800 hover:cursor-pointer"
       >
         <span className="text- text-java-200 mt-4">New Album</span>
@@ -191,7 +212,7 @@ export default function AlbumCreatorDialog({
           <div className="flex gap-2 items-center">
             <input
               type="text"
-              className="border border-indigo-900 p-2 rounded-md w-[300px]"
+              className="border border-java-900 p-2 rounded-md w-[300px]"
               placeholder="Album Name"
               value={albumName}
               onChange={(e) => setAlbumName(e.target.value)} // Update albumName state on input change
@@ -201,7 +222,7 @@ export default function AlbumCreatorDialog({
             ) : null}
             {error && <span className="text-red-500">{error}</span>}
           </div>
-          <div className="p-2 border border-dashed border-indigo-300 rounded-md">
+          <div className="p-2 border border-dashed border-java-300 rounded-md min-h-36">
             <input
               type="file"
               ref={fileInputRef}
@@ -215,7 +236,7 @@ export default function AlbumCreatorDialog({
               {images.map((image, index) => (
                 <div
                   key={index}
-                  className="flex items-center hover:bg-gray-100 w-full group "
+                  className="flex items-center hover:bg-gray-800 w-full group text-java-50 "
                 >
                   <div className="flex items-center space-x-2 ">
                     <img
@@ -234,7 +255,7 @@ export default function AlbumCreatorDialog({
                         width:
                       </label>
                       <input
-                        className="w-16 group-hover:bg-gray-50 "
+                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
                         type="number"
                         name="width"
                         id=""
@@ -263,10 +284,10 @@ export default function AlbumCreatorDialog({
                         }}
                       />
                     </div>
-                    <div className="w-32  flex justify-between">
+                    <div className="w-32  flex justify-between ">
                       <label htmlFor="height">height:</label>
                       <input
-                        className="w-16 group-hover:bg-gray-50"
+                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
                         type="number"
                         name="height"
                         id=""
@@ -287,7 +308,7 @@ export default function AlbumCreatorDialog({
                                       height: height,
                                     },
                                   },
-                                } as ImageData; // Explicitly cast to ImageData
+                                } as ImageData;
                               }
                               return img;
                             })
@@ -296,6 +317,186 @@ export default function AlbumCreatorDialog({
                       />
                     </div>
                   </div>
+                  <div className="w-44 ">
+                    <div className="flex justify-between">
+                      <label htmlFor="quality">Quality:</label>
+                      <input
+                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
+                        type="number"
+                        name="quality"
+                        id=""
+                        min={0}
+                        max={100}
+                        value={image.aiSuggestions?.quality || ""}
+                        onChange={(e) => {
+                          const quality = Number(e.target.value);
+                          setImages((prev: ImageData[]) =>
+                            prev.map((img, idx) => {
+                              if (idx === index && img.aiSuggestions) {
+                                return {
+                                  ...img,
+                                  aiSuggestions: {
+                                    ...img.aiSuggestions,
+                                    quality: quality,
+                                  },
+                                } as ImageData;
+                              }
+                              return img;
+                            })
+                          );
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between">
+                      <label htmlFor="compression">Compression:</label>
+                      <input
+                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
+                        type="number"
+                        name="compression"
+                        id=""
+                        min={1}
+                        max={9}
+                        value={image.aiSuggestions?.compressionLevel || ""}
+                        onChange={(e) => {
+                          const compressionLevel = Number(e.target.value);
+                          setImages((prev: ImageData[]) =>
+                            prev.map((img, idx) => {
+                              if (idx === index && img.aiSuggestions) {
+                                return {
+                                  ...img,
+                                  aiSuggestions: {
+                                    ...img.aiSuggestions,
+                                    compressionLevel: compressionLevel,
+                                  },
+                                } as ImageData;
+                              }
+                              return img;
+                            })
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-48 pl-3">
+                    <label htmlFor="grayscale">Grayscale:</label>
+                    <input
+                      className="w-16 group-hover:bg-gray-700 bg-gray-800 "
+                      type="checkbox"
+                      name="grayscale"
+                      id=""
+                      checked={image.aiSuggestions?.grayscale}
+                      onChange={(e) => {
+                        const grayscale = e.target.checked;
+                        setImages((prev: ImageData[]) =>
+                          prev.map((img, idx) => {
+                            if (idx === index && img.aiSuggestions) {
+                              return {
+                                ...img,
+                                aiSuggestions: {
+                                  ...img.aiSuggestions,
+                                  grayscale: grayscale,
+                                },
+                              } as ImageData;
+                            }
+                            return img;
+                          })
+                        );
+                      }}
+                    />
+                    <div>
+                      <label htmlFor="format">Format:</label>
+                      <select
+                        className="w-16 group-hover:bg-gray-700 bg-gray-800"
+                        name="format"
+                        id="format"
+                        value={image.aiSuggestions?.format || ""}
+                        onChange={(e) => {
+                          const format = e.target.value;
+                          setImages((prev: ImageData[]) =>
+                            prev.map((img, idx) => {
+                              if (idx === index && img.aiSuggestions) {
+                                return {
+                                  ...img,
+                                  aiSuggestions: {
+                                    ...img.aiSuggestions,
+                                    format: format,
+                                  },
+                                } as ImageData;
+                              }
+                              return img;
+                            })
+                          );
+                        }}
+                      >
+                        <option value="JPG">JPG</option>
+                        <option value="PNG">PNG</option>
+                        <option value="webP">WEBP</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="w-[35%] text-sm ">
+                    <div className="flex justify-between">
+                      <label htmlFor="altText">Alt Text:</label>
+                      <input
+                        className=" grow group-hover:bg-gray-700 bg-gray-800 "
+                        type="text"
+                        name="altText"
+                        id=""
+                        value={image.aiSuggestions?.altText || ""}
+                        onChange={(e) => {
+                          const altText = e.target.value;
+                          setImages((prev: ImageData[]) =>
+                            prev.map((img, idx) => {
+                              if (idx === index && img.aiSuggestions) {
+                                return {
+                                  ...img,
+                                  aiSuggestions: {
+                                    ...img.aiSuggestions,
+                                    altText: altText,
+                                  },
+                                } as ImageData;
+                              }
+                              return img;
+                            })
+                          );
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between">
+                      <label htmlFor="tags">Tags:</label>
+                      <input
+                        className="grow group-hover:bg-gray-700 bg-gray-800 "
+                        type="text"
+                        name="tags"
+                        id=""
+                        value={
+                          image.aiSuggestions?.tags
+                            ? image.aiSuggestions.tags.join(",")
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const tags = e.target.value.split(",");
+                          setImages((prev: ImageData[]) =>
+                            prev.map((img, idx) => {
+                              if (idx === index && img.aiSuggestions) {
+                                return {
+                                  ...img,
+                                  aiSuggestions: {
+                                    ...img.aiSuggestions,
+                                    tags: tags,
+                                  },
+                                } as ImageData;
+                              }
+                              return img;
+                            })
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => removeImage(index)}
                     className="text-red-600 ml-auto w-16 mr-2 font-medium"
@@ -311,7 +512,7 @@ export default function AlbumCreatorDialog({
           <div className="mt-4 flex justify-end space-x-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md"
+              className="bg-java-600 text-white px-4 py-2 rounded-md"
             >
               Upload Images (Max 20)
             </button>
@@ -326,13 +527,13 @@ export default function AlbumCreatorDialog({
             <button
               disabled={images.length === 0 || optimized}
               onClick={optimizeImages}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-java-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Optimize images
             </button>
             <button
               onClick={saveImages}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md  disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-java-600 text-white px-4 py-2 rounded-md  disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!optimized || images.length === 0 || !albumName}
             >
               Save Album

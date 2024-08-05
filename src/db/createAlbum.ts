@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "./index";
-import { albums } from "./schema"; // Adjust the import path as needed
+import { albums } from "./schema";
 
 export async function createAlbum(albumInfo: {
   albumName: string;

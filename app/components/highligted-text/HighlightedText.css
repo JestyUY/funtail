@@ -1,0 +1,22 @@
+/* components/HighlightedText.css */
+.neon-transition {
+  transition: color 10s ease, text-shadow 10s ease;
+}
+
+.neon-red {
+  color: #ff4d4da2;
+  text-shadow: 0 0 2px #ff4d4d7e, 0 0 4px #ff4d4d9a, 0 0 6px #ff4d4d,
+    0 0 8px #ff00008f;
+}
+
+.neon-green {
+  color: #4dff4d60;
+  text-shadow: 0 0 2px #4dff4d83, 0 0 4px #4dff4d96, 0 0 6px #4dff4d91,
+    0 0 8px #00ff00a2;
+}
+
+.neon-blue {
+  color: #4d4dff;
+  text-shadow: 0 0 2px #4d4dff, 0 0 4px #4d4dff, 0 0 6px #4d4dff,
+    0 0 8px #0000ffb2;
+}

@@ -34,6 +34,7 @@ export interface Album {
   updatedAt: Date | null;
   userId: string;
   pictures?: mergedImage[];
+  exportId: string;
 }
 
 export interface mergedImage {
@@ -51,4 +52,13 @@ export interface mergedImage {
   tags: string | null;
   updatedAt: Date | null;
   width: number | null;
+}
+
+export interface exportedImages {
+  optimizedUrl: string;
+  altText: string;
+  tags: string;
+  size: number;
+  width: number;
+  height: number;
 }

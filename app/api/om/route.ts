@@ -12,7 +12,7 @@ import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
 
-const DAILY_OPTIMIZATION_LIMIT = 26;
+const DAILY_OPTIMIZATION_LIMIT = 100;
 const HOURS_UNTIL_RESET = 24;
 
 const sizeSchema = z
@@ -69,8 +69,9 @@ const checkResetTime = async (
       console.log("Reset optimization", "Hours since last reset:", diffHours);
       return true;
     }
+    return false;
   }
-  return false;
+  return true;
 };
 
 export async function POST(req: Request) {
@@ -86,12 +87,12 @@ export async function POST(req: Request) {
 
     const shouldReset = await checkResetTime(userInfo, session.user.id);
     if (shouldReset) {
-      return new Response("Optimization count has been reset", { status: 200 });
+      userInfo.totalOptimizations = 0;
     }
 
     if (checkOptimizationLimit(userInfo, imagesLength)) {
       return new Response("You have reached the limit of optimizations", {
-        status: 401,
+        status: 403,
       });
     }
 
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
 
         const { object: suggestion } =
           await generateObject<OptimizationSchemaType>({
-            model: openai("gpt-4o-2024-05-13"),
+            model: openai("gpt-4o"),
             maxTokens: 1500,
             schema: optimizationSchema,
             messages: [
@@ -124,6 +125,7 @@ export async function POST(req: Request) {
     await Promise.all([
       optimizationQuantity(session.user.id, suggestions.length),
       lastOptimization(session.user.id),
+      shouldReset ? setResetOptimization(session.user.id) : Promise.resolve(),
     ]);
 
     return new Response(JSON.stringify(suggestions), {
@@ -131,6 +133,9 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Error in POST request:", error);
+    if (error instanceof z.ZodError) {
+      return new Response("Invalid input data", { status: 400 });
+    }
     return new Response("An error occurred while processing your request", {
       status: 500,
     });
