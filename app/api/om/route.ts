@@ -71,6 +71,11 @@ const checkResetTime = async (
   }
   return true;
 };
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export async function POST(req: Request) {
   try {
@@ -139,9 +144,3 @@ export async function POST(req: Request) {
     });
   }
 }
-
-export const config = {
-  api: {
-    responseLimit: false,
-  },
-};
