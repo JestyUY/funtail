@@ -104,7 +104,7 @@ export default function AlbumCreatorDialog({
     try {
       // Process each image individually and gather suggestions
       const imageSuggestions = await Promise.all(
-        images.map(async (image) => {
+        images.map(async (image, imageIndex) => {
           // Convert blob URL to base64
           const response = await fetch(image.preview);
           const blob = await response.blob();
@@ -121,10 +121,29 @@ export default function AlbumCreatorDialog({
             chunks.push(base64.slice(i, i + chunkSize));
           }
 
+          console.log(`Image ${imageIndex + 1}: ${chunks.length} chunks`);
+
           // Send chunks to server
           for (let i = 0; i < chunks.length; i++) {
-            await sendChunk(chunks[i], i, chunks.length, prompt, userId);
+            const result = await sendChunk(
+              chunks[i],
+              i,
+              chunks.length,
+              prompt,
+              userId
+            );
+            if (!result.success) {
+              throw new Error(
+                `Failed to send chunk ${i + 1}/${chunks.length} for image ${
+                  imageIndex + 1
+                }`
+              );
+            }
           }
+
+          console.log(
+            `All chunks for image ${imageIndex + 1} sent successfully`
+          );
 
           // Call server action for optimization
           const suggestion = await optimizeImage(prompt, userId);
@@ -185,11 +204,14 @@ export default function AlbumCreatorDialog({
           case "Invalid input data":
             setError("Invalid input data.");
             break;
+          case "Image data not found":
+            setError("Failed to retrieve image data. Please try again.");
+            break;
           default:
-            setError("An error occurred while processing your request.");
+            setError(`An error occurred: ${error.message}`);
         }
       } else {
-        setError("An unexpected error occurred .");
+        setError("An unexpected error occurred.");
       }
     }
   };

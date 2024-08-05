@@ -85,13 +85,23 @@ export async function sendChunk(
   userId: string
 ) {
   const key = `image:${userId}:${prompt}`;
-  await kv.hset(key, { [index]: chunk });
-
-  if (index === total - 1) {
-    await kv.expire(key, 600); // Expire after 10 minutes
+  try {
+    await kv.hset(key, { [index]: chunk });
+    if (index === total - 1) {
+      await kv.expire(key, 600); // Expire after 10 minutes
+    }
+    return {
+      success: true,
+      message: `Chunk ${index + 1}/${total} saved successfully`,
+    };
+  } catch (error) {
+    console.error(`Error saving chunk ${index + 1}/${total}:`, error);
+    return {
+      success: false,
+      message: `Failed to save chunk ${index + 1}/${total}`,
+    };
   }
 }
-
 export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
