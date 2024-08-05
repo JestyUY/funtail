@@ -11,14 +11,15 @@ import {
 import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
+import { kv } from "@vercel/kv";
 
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
 
 const sizeSchema = z
   .object({
-    width: z.any(),
-    height: z.any(),
+    width: z.number(),
+    height: z.number(),
   })
   .transform((val: unknown) => {
     if (typeof val === "string") {
@@ -76,67 +77,82 @@ const checkResetTime = async (
   return true;
 };
 
-export async function optimizeImage(images: string[], prompt: string) {
-  if (!Array.isArray(images) || images.length === 0) {
-    throw new Error("Images array is invalid");
+export async function sendChunk(
+  chunk: string,
+  index: number,
+  total: number,
+  prompt: string,
+  userId: string
+) {
+  const key = `image:${userId}:${prompt}`;
+  await kv.hset(key, { [index]: chunk });
+
+  if (index === total - 1) {
+    await kv.expire(key, 600); // Expire after 10 minutes
   }
+}
+
+export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
 
-    const imagesLength = images.length;
-
-    const userInfoArray: User[] = await selecUserInfo(session.user.id);
+    const userInfoArray: User[] = await selecUserInfo(userId);
     if (!userInfoArray || userInfoArray.length === 0) {
       throw new Error("User information could not be retrieved");
     }
     const userInfo = userInfoArray[0];
 
-    const shouldReset = await checkResetTime(userInfo, session.user.id);
+    const shouldReset = await checkResetTime(userInfo, userId);
     if (shouldReset) {
       userInfo.totalOptimizations = 0;
     }
 
-    if (checkOptimizationLimit(userInfo, imagesLength)) {
+    if (checkOptimizationLimit(userInfo, 1)) {
       throw new Error("You have reached the limit of optimizations");
     }
 
-    const suggestions = [];
-    for (const imageData of images) {
-      const base64Image = imageData.startsWith("data:image")
-        ? imageData.split(",")[1]
-        : imageData;
+    const key = `image:${userId}:${prompt}`;
+    const chunks = await kv.hgetall(key);
 
-      const { object: suggestion } =
-        await generateObject<OptimizationSchemaType>({
-          model: openai("gpt-4o"),
-          maxTokens: 1500,
-          schema: optimizationSchema,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image", image: base64Image },
-              ],
-            },
-          ],
-        });
-
-      suggestions.push(suggestion);
+    if (!chunks) {
+      throw new Error("Image data not found");
     }
 
+    const base64Image = Object.entries(chunks)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+      .map(([_, chunk]) => chunk)
+      .join("");
+
+    const { object: suggestion } = await generateObject<OptimizationSchemaType>(
+      {
+        model: openai("gpt-4o"),
+        maxTokens: 1500,
+        schema: optimizationSchema,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image", image: base64Image },
+            ],
+          },
+        ],
+      }
+    );
+
     await Promise.all([
-      optimizationQuantity(session.user.id, suggestions.length),
-      lastOptimization(session.user.id),
-      shouldReset ? setResetOptimization(session.user.id) : Promise.resolve(),
+      optimizationQuantity(userId, 1),
+      lastOptimization(userId),
+      shouldReset ? setResetOptimization(userId) : Promise.resolve(),
+      kv.del(key),
     ]);
 
-    return suggestions;
+    return suggestion;
   } catch (error) {
-    console.error("Error in optimizeImages:", error);
+    console.error("Error in optimizeImage:", error);
     if (error instanceof z.ZodError) {
       throw new Error("Invalid input data");
     }

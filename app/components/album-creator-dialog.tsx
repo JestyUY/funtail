@@ -2,18 +2,22 @@
 
 import { useState, useRef } from "react";
 import Dialog from "./dialog-modal";
-import { optimizeImage } from "../../src/actions/optimizeImage"; // Adjust this import path as needed
+import { optimizeImage, sendChunk } from "../../src/actions/optimizeImage"; // Adjust this import path as needed
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
 
 // Type definitions
 interface UserCustomization {
   // Define properties as needed
 }
+interface Size {
+  width: number;
+  height: number;
+}
 
 interface AISuggestions {
   altText: string;
   tags: string[];
-  size: { width: number; height: number };
+  size: Size;
   format: string;
   quality: number;
   rotation: number;
@@ -27,7 +31,6 @@ interface ImageData {
   aiSuggestions?: AISuggestions;
   userCustomization?: UserCustomization;
 }
-
 interface AlbumCreatorDialogProps {
   userId: string;
   onAlbumCreated: () => void;
@@ -99,52 +102,97 @@ export default function AlbumCreatorDialog({
     `;
 
     try {
-      const suggestions = await optimizeImage(imageData, prompt);
+      // Process each image individually and gather suggestions
+      const imageSuggestions = await Promise.all(
+        images.map(async (image) => {
+          // Convert blob URL to base64
+          const response = await fetch(image.preview);
+          const blob = await response.blob();
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
 
-      setImages((prevImages) =>
-        prevImages.map((img, index) => {
-          const suggestion = suggestions[index];
-          return {
-            ...img,
-            aiSuggestions: {
-              ...suggestion,
-              size: {
-                width:
-                  suggestion.size &&
-                  typeof suggestion.size === "object" &&
-                  "width" in suggestion.size
-                    ? Number(suggestion.size.width) || 0
-                    : 0,
-                height:
-                  suggestion.size &&
-                  typeof suggestion.size === "object" &&
-                  "height" in suggestion.size
-                    ? Number(suggestion.size.height) || 0
-                    : 0,
-              },
+          // Split the base64 string into chunks
+          const chunkSize = 3 * 1024 * 1024; // 3MB chunks
+          const chunks = [];
+          for (let i = 0; i < base64.length; i += chunkSize) {
+            chunks.push(base64.slice(i, i + chunkSize));
+          }
+
+          // Send chunks to server
+          for (let i = 0; i < chunks.length; i++) {
+            await sendChunk(chunks[i], i, chunks.length, prompt, userId);
+          }
+
+          // Call server action for optimization
+          const suggestion = await optimizeImage(prompt, userId);
+
+          // Ensure the size property is correctly typed
+          const typedSuggestion: AISuggestions = {
+            ...suggestion,
+            size: {
+              width:
+                typeof (suggestion.size as { width: number }).width === "number"
+                  ? (suggestion.size as { width: number }).width
+                  : 0,
+              height:
+                typeof (suggestion.size as { height: number }).height ===
+                "number"
+                  ? (suggestion.size as { height: number }).height
+                  : 0,
             },
+            quality:
+              typeof suggestion.quality === "number" ? suggestion.quality : 0,
+            rotation:
+              typeof suggestion.rotation === "number" ? suggestion.rotation : 0,
+            compressionLevel:
+              typeof suggestion.compressionLevel === "number"
+                ? suggestion.compressionLevel
+                : 0,
+            grayscale:
+              typeof suggestion.grayscale === "boolean"
+                ? suggestion.grayscale
+                : false,
+            altText:
+              typeof suggestion.altText === "string" ? suggestion.altText : "",
+            format:
+              typeof suggestion.format === "string" ? suggestion.format : "",
+            tags: Array.isArray(suggestion.tags) ? suggestion.tags : [],
+          };
+
+          return {
+            ...image,
+            aiSuggestions: typedSuggestion,
           };
         })
       );
+
+      // Update state with optimized images
+      setImages(imageSuggestions);
       setOptimized(true);
     } catch (error) {
       console.error("Error optimizing images:", error);
       if (error instanceof Error) {
-        if (error.message === "Unauthorized") {
-          setError("Unauthorized: Please log in to continue.");
-        } else if (
-          error.message === "You have reached the limit of optimizations"
-        ) {
-          setError("You have reached the limit of optimizations.");
-        } else if (error.message === "Invalid input data") {
-          setError("Invalid input data.");
-        } else {
-          setError("An error occurred while processing your request.");
+        switch (error.message) {
+          case "Unauthorized":
+            setError("Unauthorized: Please log in to continue.");
+            break;
+          case "You have reached the limit of optimizations":
+            setError("You have reached the limit of optimizations.");
+            break;
+          case "Invalid input data":
+            setError("Invalid input data.");
+            break;
+          default:
+            setError("An error occurred while processing your request.");
         }
+      } else {
+        setError("An unexpected error occurred.");
       }
     }
   };
-
   const saveImages = async () => {
     const albumId = crypto.randomUUID();
 
