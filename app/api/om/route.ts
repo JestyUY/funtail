@@ -1,7 +1,5 @@
 import { generateObject } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
-import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import {
   lastOptimization,
@@ -141,4 +139,3 @@ export async function POST(req: Request) {
     });
   }
 }
-//
