@@ -189,7 +189,7 @@ export default function AlbumCreatorDialog({
             setError("An error occurred while processing your request.");
         }
       } else {
-        setError("An unexpected error occurred.");
+        setError("An unexpected error occurred .");
       }
     }
   };
