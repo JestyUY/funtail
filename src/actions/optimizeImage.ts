@@ -103,36 +103,30 @@ export async function optimizeImage(images: string[], prompt: string) {
       throw new Error("You have reached the limit of optimizations");
     }
 
-    const suggestions = await Promise.all(
-      images.map(async (imageData: string) => {
-        const base64Image = imageData.startsWith("data:image")
-          ? imageData.split(",")[1]
-          : imageData;
+    const suggestions = [];
+    for (const imageData of images) {
+      const base64Image = imageData.startsWith("data:image")
+        ? imageData.split(",")[1]
+        : imageData;
 
-        try {
-          const { object: suggestion } =
-            await generateObject<OptimizationSchemaType>({
-              model: openai("gpt-4o"),
-              maxTokens: 1500,
-              schema: optimizationSchema,
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: prompt },
-                    { type: "image", image: base64Image },
-                  ],
-                },
+      const { object: suggestion } =
+        await generateObject<OptimizationSchemaType>({
+          model: openai("gpt-4o"),
+          maxTokens: 1500,
+          schema: optimizationSchema,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image", image: base64Image },
               ],
-            });
+            },
+          ],
+        });
 
-          return suggestion;
-        } catch (generateError) {
-          console.error("Error generating suggestions:", generateError);
-          throw new Error("Failed to generate image suggestions");
-        }
-      })
-    );
+      suggestions.push(suggestion);
+    }
 
     await Promise.all([
       optimizationQuantity(session.user.id, suggestions.length),
@@ -149,3 +143,77 @@ export async function optimizeImage(images: string[], prompt: string) {
     throw error;
   }
 }
+
+// export async function optimizeImage(images: string[], prompt: string) {
+//   if (!Array.isArray(images) || images.length === 0) {
+//     throw new Error("Images array is invalid");
+//   }
+//   try {
+//     const session = await auth();
+//     if (!session?.user?.id) {
+//       throw new Error("Unauthorized");
+//     }
+
+//     const imagesLength = images.length;
+
+//     const userInfoArray: User[] = await selecUserInfo(session.user.id);
+//     if (!userInfoArray || userInfoArray.length === 0) {
+//       throw new Error("User information could not be retrieved");
+//     }
+//     const userInfo = userInfoArray[0];
+
+//     const shouldReset = await checkResetTime(userInfo, session.user.id);
+//     if (shouldReset) {
+//       userInfo.totalOptimizations = 0;
+//     }
+
+//     if (checkOptimizationLimit(userInfo, imagesLength)) {
+//       throw new Error("You have reached the limit of optimizations");
+//     }
+
+//     const suggestions = await Promise.all(
+//       images.map(async (imageData: string) => {
+//         const base64Image = imageData.startsWith("data:image")
+//           ? imageData.split(",")[1]
+//           : imageData;
+
+//         try {
+//           const { object: suggestion } =
+//             await generateObject<OptimizationSchemaType>({
+//               model: openai("gpt-4o"),
+//               maxTokens: 1500,
+//               schema: optimizationSchema,
+//               messages: [
+//                 {
+//                   role: "user",
+//                   content: [
+//                     { type: "text", text: prompt },
+//                     { type: "image", image: base64Image },
+//                   ],
+//                 },
+//               ],
+//             });
+
+//           return suggestion;
+//         } catch (generateError) {
+//           console.error("Error generating suggestions:", generateError);
+//           throw new Error("Failed to generate image suggestions");
+//         }
+//       })
+//     );
+
+//     await Promise.all([
+//       optimizationQuantity(session.user.id, suggestions.length),
+//       lastOptimization(session.user.id),
+//       shouldReset ? setResetOptimization(session.user.id) : Promise.resolve(),
+//     ]);
+
+//     return suggestions;
+//   } catch (error) {
+//     console.error("Error in optimizeImages:", error);
+//     if (error instanceof z.ZodError) {
+//       throw new Error("Invalid input data");
+//     }
+//     throw error;
+//   }
+// }
