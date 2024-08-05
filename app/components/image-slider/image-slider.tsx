@@ -12,7 +12,7 @@ const ImageSlider = () => {
   useEffect(() => {
     const exportId = "23d56ccb-3050-4756-b4df-3a5738a73c1a";
     fetch(
-      `http://localhost:3000/api/get-album?secretId=${encodeURIComponent(
+      `https://funtail.vercel.app/api/get-album?secretId=${encodeURIComponent(
         exportId
       )}`
     )
