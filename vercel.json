@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**",
+      "use": "@vercel/node",
+      "config": {
+        "maxPayloadSize": 52428800
+      }
+    }
+  ]
+}
