@@ -141,11 +141,3 @@ export async function POST(req: Request) {
     });
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "20mb",
-    },
-  },
-};
