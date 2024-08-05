@@ -1,5 +1,3 @@
-"use server";
-
 import { generateObject } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
@@ -141,3 +139,9 @@ export async function POST(req: Request) {
     });
   }
 }
+
+export const config = {
+  api: {
+    responseLimit: false,
+  },
+};
