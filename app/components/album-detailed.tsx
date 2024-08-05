@@ -218,7 +218,7 @@ export default function AlbumDetailed({
               <p className="mt-4 text-java-200">Example:</p>
               <pre className="bg-gray-900 p-3 rounded-md overflow-x-auto">
                 <code className="text-java-100">
-                  localhost:3000/api/get-album?secretId=
+                  https://funtail.vercel.app/api/get-album?secretId=
                   <span className="text-green-400">
                     f001705a-18e4-42d3-9cf0-b29bd8a8845a
                   </span>
