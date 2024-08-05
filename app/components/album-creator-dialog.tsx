@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Dialog from "./dialog-modal";
 import { optimizeImage } from "../../src/actions/optimizeImage"; // Adjust this import path as needed
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
@@ -65,11 +65,9 @@ export default function AlbumCreatorDialog({
       1. Image Content: Describe the main subject and key elements of the image short answer Max characters 15
       
       2. Dimensions: 
-         
          - keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
          
       3. Image Format:
-         
          - Recommend the best format (webP, PNG or JPG) for a minimum file size and optimal visual quality
          
       4. Quality and Compression:
@@ -228,6 +226,7 @@ export default function AlbumCreatorDialog({
       setIsOpen(true);
     }
   };
+
   return (
     <>
       <div
