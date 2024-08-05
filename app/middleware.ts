@@ -9,11 +9,11 @@ export function middleware(request: NextRequest) {
     ? parseInt(contentLengthHeader, 10)
     : 0;
 
+  console.log(`Request size: ${contentLength} bytes`);
+
   if (contentLength > MAX_PAYLOAD_SIZE_BYTES) {
-    return NextResponse.json(
-      { error: "Payload Too Large :)" },
-      { status: 413 }
-    );
+    console.log("Payload size exceeds limit");
+    return NextResponse.json({ error: "Payload Too Large" }, { status: 413 });
   }
 
   return NextResponse.next();
