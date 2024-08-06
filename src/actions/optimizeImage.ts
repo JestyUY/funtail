@@ -92,8 +92,11 @@ export async function sendChunk(
     await kv.hset(key, { [`chunk:${index}`]: chunk });
     await kv.hincrby(key, "savedChunks", 1);
 
-    if (index === total - 1) {
+    if (index === 0) {
       await kv.hset(key, { total: total.toString() });
+    }
+
+    if (index === total - 1) {
       await kv.expire(key, CHUNK_EXPIRY_TIME);
     }
 
@@ -110,7 +113,6 @@ export async function sendChunk(
     };
   }
 }
-
 async function processImage(base64Image: string, prompt: string) {
   console.log("Reassembled base64 image length:", base64Image.length);
   console.log("First few characters of base64Image:", base64Image.slice(0, 20));
@@ -247,14 +249,28 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     const key = `image:${userId}:${prompt}`;
+    console.log("Retrieving metadata for key:", key);
     const metadata = await kv.hmget(key, "total", "savedChunks");
+    console.log("Retrieved metadata:", metadata);
 
-    if (!metadata || !metadata[0] || !metadata[1]) {
-      throw new Error("Image metadata not found or incomplete");
+    if (!metadata) {
+      throw new Error("No metadata found");
     }
 
-    const totalExpectedChunks = parseInt(metadata[0] as string, 10);
-    const savedChunks = parseInt(metadata[1] as string, 10);
+    const totalExpectedChunks = metadata.total
+      ? parseInt(metadata.total as string, 10)
+      : null;
+    const savedChunks = metadata.savedChunks
+      ? parseInt(metadata.savedChunks as string, 10)
+      : null;
+
+    console.log("Parsed metadata:", { totalExpectedChunks, savedChunks });
+
+    if (totalExpectedChunks === null || savedChunks === null) {
+      throw new Error(
+        `Invalid metadata: total=${metadata.total}, savedChunks=${metadata.savedChunks}`
+      );
+    }
 
     if (isNaN(totalExpectedChunks) || isNaN(savedChunks)) {
       throw new Error("Invalid metadata: total or savedChunks is not a number");
