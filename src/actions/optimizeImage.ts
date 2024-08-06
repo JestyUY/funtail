@@ -17,6 +17,7 @@ import sharp from "sharp";
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
 const CHUNK_EXPIRY_TIME = 600; // 10 minutes in seconds
+const BATCH_SIZE = 10; // Number of chunks to retrieve in each batch
 
 const sizeSchema = z
   .object({
@@ -199,6 +200,30 @@ async function processImage(base64Image: string, prompt: string) {
   }
 }
 
+async function getChunksInBatches(
+  key: string,
+  totalChunks: number
+): Promise<string[]> {
+  const chunks: string[] = [];
+  for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
+    const batchKeys = Array.from(
+      { length: Math.min(BATCH_SIZE, totalChunks - i) },
+      (_, index) => `chunk:${i + index}`
+    );
+    const batchData = await kv.hmget(key, ...batchKeys);
+
+    if (batchData) {
+      Object.values(batchData).forEach((chunk) => {
+        if (typeof chunk === "string") {
+          chunks.push(chunk);
+        }
+      });
+    } else {
+      console.error(`Failed to retrieve batch starting at index ${i}`);
+    }
+  }
+  return chunks;
+}
 export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
@@ -222,15 +247,19 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     const key = `image:${userId}:${prompt}`;
-    const allData = await kv.hgetall(key);
-    console.log("All data from KV:", allData);
+    const metadata = await kv.hmget(key, "total", "savedChunks");
 
-    if (!allData) {
-      throw new Error("Image data not found");
+    if (!metadata || !metadata[0] || !metadata[1]) {
+      throw new Error("Image metadata not found or incomplete");
     }
 
-    const totalExpectedChunks = parseInt(allData.total as string, 10);
-    const savedChunks = parseInt(allData.savedChunks as string, 10);
+    const totalExpectedChunks = parseInt(metadata[0] as string, 10);
+    const savedChunks = parseInt(metadata[1] as string, 10);
+
+    if (isNaN(totalExpectedChunks) || isNaN(savedChunks)) {
+      throw new Error("Invalid metadata: total or savedChunks is not a number");
+    }
+
     console.log(
       `Total expected chunks: ${totalExpectedChunks}, Saved chunks: ${savedChunks}`
     );
@@ -241,16 +270,12 @@ export async function optimizeImage(prompt: string, userId: string) {
       );
     }
 
-    const chunks: string[] = [];
+    const chunks = await getChunksInBatches(key, totalExpectedChunks);
 
-    for (let i = 0; i < totalExpectedChunks; i++) {
-      const chunk = allData[`chunk:${i}`];
-      if (typeof chunk === "string") {
-        chunks.push(chunk);
-      } else {
-        console.error(`Chunk ${i} is not a string:`, chunk);
-        throw new Error(`Failed to retrieve chunk ${i}`);
-      }
+    if (chunks.length !== totalExpectedChunks) {
+      throw new Error(
+        `Mismatch in chunk count. Expected ${totalExpectedChunks}, but retrieved ${chunks.length}`
+      );
     }
 
     console.log("Number of chunks retrieved:", chunks.length);
