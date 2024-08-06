@@ -16,6 +16,10 @@ export default function Home() {
             that uses AI to optimize images for the web. Funtail intelligently
             stores images in the cloud, making it easy to access and manage your
             images from anywhere.
+            <span className="text-java-200">
+              Check the console, i will be leaving some stuff there for you to
+              see.
+            </span>
           </p>
         </div>
 
