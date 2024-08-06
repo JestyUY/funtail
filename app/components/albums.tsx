@@ -54,7 +54,6 @@ export default function Albums({ userId }: { userId: string }) {
       )
     );
 
-    // If you're keeping a separate state for the selected album, update it as well
     setSelectedAlbum((prevAlbum) => {
       if (prevAlbum && prevAlbum.id === albumId) {
         return {

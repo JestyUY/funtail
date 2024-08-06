@@ -5,10 +5,7 @@ import Dialog from "./dialog-modal";
 import { optimizeImage, sendChunk } from "../../src/actions/optimizeImages"; // Adjust this import path as needed
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
 
-// Type definitions
-interface UserCustomization {
-  // Define properties as needed
-}
+interface UserCustomization {}
 interface Size {
   width: number;
   height: number;
@@ -46,11 +43,12 @@ export default function AlbumCreatorDialog({
   const [optimized, setOptimized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalSize, setTotalSize] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOptimizeImages = async () => {
+    setIsLoading(true);
     try {
-      // Convert blob URLs to base64
       const imageData = await Promise.all(
         images.map(async (img) => {
           const response = await fetch(img.preview);
@@ -103,7 +101,6 @@ export default function AlbumCreatorDialog({
         Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
       `;
 
-      // Send all images to the API in a single request
       const response = await fetch("/api/om", {
         method: "POST",
         headers: {
@@ -121,7 +118,6 @@ export default function AlbumCreatorDialog({
 
       const suggestions = await response.json();
 
-      // Update state with optimized images
       const imageSuggestions = images.map((image, index) => ({
         ...image,
         aiSuggestions: suggestions[index],
@@ -148,10 +144,13 @@ export default function AlbumCreatorDialog({
       } else {
         setError("An unexpected error occurred.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const saveImages = async () => {
+    setIsLoading(true);
     const albumId = crypto.randomUUID();
 
     const imagesToSave = await Promise.all(
@@ -193,6 +192,8 @@ export default function AlbumCreatorDialog({
     } catch (error) {
       console.error("Error saving images:", error);
       setError("Failed to save images. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -205,7 +206,7 @@ export default function AlbumCreatorDialog({
       }));
       setImages((prevImages) => {
         const updatedImages = [...prevImages, ...newImages];
-        return updatedImages.slice(0, 20); // Limit to 20 images
+        return updatedImages.slice(0, 20);
       });
     }
   };
@@ -242,10 +243,10 @@ export default function AlbumCreatorDialog({
     <>
       <div
         onClick={handleNewAlbum}
-        className="border-2 rounded-md flex flex-col w-[300px] h-[300px] items-center bg-java-700 border-java-800 hover:cursor-pointer"
+        className="border-2 rounded-md flex flex-col items-center justify-center bg-java-700 border-java-800 hover:cursor-pointer hover:bg-java-600 transition-colors duration-200 p-4  w-[300px] h-[300px]"
       >
-        <span className="text- text-java-200 mt-4">New Album</span>
-        <span className="text-[150px] text-java-200">+</span>
+        <span className="text-2xl text-java-200 mb-2">New Album</span>
+        <span className="text-[120px] sm:text-[150px] text-java-200">+</span>
       </div>
 
       <Dialog
@@ -254,20 +255,22 @@ export default function AlbumCreatorDialog({
         title="New Album"
       >
         <div className="flex flex-col space-y-4">
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-col gap-2">
             <input
               type="text"
-              className="border border-java-900 p-2 rounded-md w-[300px]"
+              className={`border p-2 rounded-md w-full ${
+                error ? "border-red-500" : "border-java-900"
+              }`}
               placeholder="Album Name"
               value={albumName}
-              onChange={(e) => setAlbumName(e.target.value)} // Update albumName state on input change
+              onChange={(e) => setAlbumName(e.target.value)}
             />
-            {!albumName ? (
-              <span className="text-red-500">Requiered*</span>
-            ) : null}
-            {error && <span className="text-red-500">{error}</span>}
+            {!albumName && (
+              <span className="text-red-500 text-sm">Required*</span>
+            )}
+            {error && <span className="text-red-500 text-sm">{error}</span>}
           </div>
-          <div className="p-2 border border-dashed border-java-300 rounded-md min-h-36">
+          <div className="p-4 border border-dashed border-java-300 rounded-md min-h-36">
             <input
               type="file"
               ref={fileInputRef}
@@ -277,88 +280,116 @@ export default function AlbumCreatorDialog({
               className="hidden"
             />
 
-            <div className="mt-2 space-y-2">
-              {images.map((image, index) => (
-                <div
-                  key={index}
-                  className="flex items-center hover:bg-gray-800 w-full group text-java-50 "
+            {images.length === 0 ? (
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <span className="text-java-200">No images selected</span>
+                <button
+                  className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="flex items-center w-full justify-between hover:bg-gray-800 border-[1px] p-2 rounded-lg border-gray-500">
-                    <img
-                      src={image.preview}
-                      alt={`Preview ${index}`}
-                      className="w-16 h-16 object-cover rounded-md"
-                    />
-                    <div className="flex flex-col items-start flex-grow ml-4">
-                      <span className="text-sm">{image.file.name}</span>
-                      {image.aiSuggestions && (
-                        <span className="text-xs text-gray-400">
-                          {`Optimized to: ${image.aiSuggestions.size.width}x${image.aiSuggestions.size.height}, ${image.aiSuggestions.format} , ${image.aiSuggestions.quality}% quality `}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      className="ml-4 text-red-500 hover:text-red-700"
-                      onClick={() => removeImage(index)}
+                  Add Images
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {images.map((image, index) => (
+                    <div
+                      key={index}
+                      className="flex flex-col items-center space-y-2 bg-java-800 p-4 rounded-md"
                     >
-                      Remove
+                      <img
+                        src={image.preview}
+                        alt={`Preview ${index}`}
+                        className="w-full h-40 object-cover rounded-md"
+                      />
+                      <div className="flex flex-col items-start w-full">
+                        <span className="text-sm text-java-200">
+                          {image.file.name}
+                        </span>
+                        {image.aiSuggestions && (
+                          <span className="text-xs text-java-400">
+                            {`Optimized to: ${image.aiSuggestions.size.width}x${image.aiSuggestions.size.height}, ${image.aiSuggestions.format}, ${image.aiSuggestions.quality}% quality`}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        className="text-red-500 hover:text-red-700"
+                        onClick={() => removeImage(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {!optimized && (
+                  <div className="flex justify-end mt-4">
+                    <button
+                      className="text-java-300 hover:text-java-200 hover:underline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Add More Images
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end">
-              <button
-                className={`mt-2 text-java-300 hover:text-java-200 hover:underline ${
-                  optimized ? "hidden" : ""
-                } `}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Add Images
-              </button>
-            </div>
+                )}
+              </>
+            )}
           </div>
-          {totalSize > 4 * 1024 * 1024 && (
-            <p className="text-red-500">
-              Total size of images exceeds 3 MB. Please remove some images.
+          {totalSize > 3.5 * 1024 * 1024 && (
+            <p className="text-red-500 text-sm">
+              Total size of images exceeds 3.5 MB. Please remove some images.
             </p>
           )}
-          <div className="flex justify-end mt-4">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
             <button
               onClick={handleCancelClick}
-              className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ml-3"
+              className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700"
             >
               Cancel
             </button>
             <button
-              className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
-                !albumName || totalSize > 3 * 1024 * 1024
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
+              className={`px-4 py-2 text-white rounded-md ${
+                !albumName ||
+                totalSize > 3.5 * 1024 * 1024 ||
+                images.length === 0 ||
+                isLoading
+                  ? "bg-java-600 cursor-not-allowed"
+                  : "bg-java-900 hover:bg-java-700"
               }`}
               onClick={handleOptimizeImages}
-              disabled={!albumName || totalSize > 3 * 1024 * 1024}
+              disabled={
+                !albumName ||
+                totalSize > 3.5 * 1024 * 1024 ||
+                images.length === 0 ||
+                isLoading
+              }
             >
-              Optimize
+              {isLoading ? "Optimizing..." : "Optimize"}
             </button>
-            {!optimized ? (
-              <div></div>
-            ) : (
-              <div className="flex gap-3">
-                <button
-                  className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
-                    !albumName || totalSize > 3 * 1024 * 1024
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                  onClick={saveImages}
-                  disabled={!albumName || totalSize > 3 * 1024 * 1024}
-                >
-                  Save Album
-                </button>
-              </div>
+            {optimized && (
+              <button
+                className={`px-4 py-2 text-white rounded-md ${
+                  !albumName || totalSize > 3.5 * 1024 * 1024 || isLoading
+                    ? "bg-java-600 cursor-not-allowed"
+                    : "bg-java-900 hover:bg-java-700"
+                }`}
+                onClick={saveImages}
+                disabled={
+                  !albumName || totalSize > 3.5 * 1024 * 1024 || isLoading
+                }
+              >
+                {isLoading ? "Saving..." : "Save Album"}
+              </button>
             )}
           </div>
+          {isLoading && (
+            <div className="flex items-center justify-center mt-4">
+              <div className="animate-spin w-8 h-8 border-4 border-t-4 border-java-500 rounded-full"></div>
+              <span className="ml-4 text-java-200">
+                This may take a few seconds...
+              </span>
+            </div>
+          )}
         </div>
       </Dialog>
     </>

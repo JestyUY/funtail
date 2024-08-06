@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
   try {
     const albums = await selectAlbum(userId);
 
-    // Map over albums to add pictures to each album
     const albumsWithPictures = await Promise.all(
       albums.map(async (album) => {
         const pictures = await selectPicturesByAlbumId(album.id);

@@ -14,14 +14,13 @@ export async function POST(req: NextRequest) {
       throw new Error("userId is required");
     }
 
-    // Create Album
     const createdAlbum = await createAlbum({
       albumName,
       createdAt: new Date(),
       updatedAt: new Date(),
       userId,
     });
-    console.log("Created Album:", createdAlbum); // Log created album object
+    console.log("Created Album:", createdAlbum);
     const newAlbumId = await createdAlbum[0].id;
     console.log(newAlbumId);
     const savedImages = await Promise.all(
@@ -31,7 +30,6 @@ export async function POST(req: NextRequest) {
         if (!newAlbumId) {
           throw new Error("albumId is required for each image.");
         }
-        // Apply optimizations using sharp
         const buffer = Buffer.from(data.split(",")[1], "base64");
         const optimizedBuffer = await sharp(buffer)
           .resize(suggestions.size.width, suggestions.size.height)
@@ -51,8 +49,6 @@ export async function POST(req: NextRequest) {
             access: "public",
           }
         );
-
-        // Save image info to database with error handling
         try {
           await saveImageInfoToDatabase({
             albumId: newAlbumId,
@@ -71,7 +67,6 @@ export async function POST(req: NextRequest) {
           console.log("Image info saved to database");
         } catch (error) {
           console.error("Error saving image info:", error);
-          // Handle the error here (e.g., return an error response)
         }
 
         return { url, suggestions };
