@@ -1,5 +1,3 @@
-import Link from "next/link";
-import Slider from "./components/slider/slider-component";
 import HighlightedText from "./components/highligted-text/highlightedText";
 import ImageSlider from "./components/image-slider/image-slider";
 

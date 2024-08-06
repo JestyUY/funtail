@@ -104,7 +104,7 @@ export async function POST(req: Request) {
 
         const { object: suggestion } =
           await generateObject<OptimizationSchemaType>({
-            model: openai("gpt-4o"),
+            model: openai("gpt-4o"), //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             maxTokens: 1500,
             schema: optimizationSchema,
             messages: [
