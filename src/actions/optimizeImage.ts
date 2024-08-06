@@ -108,21 +108,13 @@ export async function sendChunk(
 async function processImage(base64Image: string, prompt: string) {
   console.log("Reassembled base64 image length:", base64Image.length);
   console.log("First few characters of base64Image:", base64Image.slice(0, 20));
-
-  // Validate base64 string
-  if (
-    !base64Image.match(
-      /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/
-    )
-  ) {
-    throw new Error("Invalid base64 string");
-  }
+  console.log("Last few characters of base64Image:", base64Image.slice(-20));
 
   let imageBuffer;
 
   try {
-    if (base64Image.includes("data:image/png;base64,")) {
-      const base64Data = base64Image.split("data:image/png;base64,")[1];
+    if (base64Image.includes("data:image/")) {
+      const base64Data = base64Image.split(",")[1];
       imageBuffer = Buffer.from(base64Data, "base64");
     } else {
       imageBuffer = Buffer.from(base64Image, "base64");
