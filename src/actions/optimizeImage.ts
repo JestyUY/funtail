@@ -87,7 +87,7 @@ export async function sendChunk(
 ) {
   const key = `image:${userId}:${prompt}`;
   try {
-    await kv.hset(key, { [`chunk:${index}`]: chunk });
+    await kv.hset(key, { [`chunk:${index}`]: chunk, total: total.toString() });
     if (index === total - 1) {
       await kv.expire(key, 600); // Expire after 10 minutes
     }
@@ -108,6 +108,15 @@ export async function sendChunk(
 async function processImage(base64Image: string, prompt: string) {
   console.log("Reassembled base64 image length:", base64Image.length);
   console.log("First few characters of base64Image:", base64Image.slice(0, 20));
+
+  // Validate base64 string
+  if (
+    !base64Image.match(
+      /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/
+    )
+  ) {
+    throw new Error("Invalid base64 string");
+  }
 
   let imageBuffer;
 
@@ -217,6 +226,10 @@ export async function optimizeImage(prompt: string, userId: string) {
 
     const key = `image:${userId}:${prompt}`;
     const chunkCount = await kv.hlen(key);
+    const totalExpectedChunks = parseInt(
+      (await kv.hget(key, "total")) as string,
+      10
+    );
 
     console.log("Number of chunks stored:", chunkCount);
 
@@ -224,18 +237,34 @@ export async function optimizeImage(prompt: string, userId: string) {
       throw new Error("Image data not found");
     }
 
+    if (chunkCount - 1 !== totalExpectedChunks) {
+      // -1 because 'total' is also a field
+      throw new Error(
+        `Incomplete image data. Expected ${totalExpectedChunks} chunks, but found ${
+          chunkCount - 1
+        }`
+      );
+    }
+
     const chunks: string[] = [];
 
-    for (let i = 0; i < chunkCount; i++) {
+    for (let i = 0; i < totalExpectedChunks; i++) {
       const chunk = await kv.hget(key, `chunk:${i}`);
       if (typeof chunk === "string") {
         chunks.push(chunk);
       } else {
         console.error(`Chunk ${i} is not a string:`, chunk);
+        throw new Error(`Failed to retrieve chunk ${i}`);
       }
     }
 
     console.log("Number of chunks retrieved:", chunks.length);
+    if (chunks.length !== totalExpectedChunks) {
+      throw new Error(
+        `Mismatch in chunk count. Expected ${totalExpectedChunks}, but retrieved ${chunks.length}`
+      );
+    }
+
     const base64Image = chunks.join("");
     console.log("Reassembled base64 length:", base64Image.length);
 
