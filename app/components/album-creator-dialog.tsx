@@ -325,17 +325,25 @@ export default function AlbumCreatorDialog({
           )}
           <div className="flex justify-end mt-4">
             {!optimized ? (
-              <button
-                className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
-                  !albumName || totalSize > 4 * 1024 * 1024
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-                onClick={handleOptimizeImages}
-                disabled={!albumName || totalSize > 4 * 1024 * 1024}
-              >
-                Optimize
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelClick}
+                  className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
+                    !albumName || totalSize > 4 * 1024 * 1024
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  onClick={handleOptimizeImages}
+                  disabled={!albumName || totalSize > 4 * 1024 * 1024}
+                >
+                  Optimize
+                </button>
+              </div>
             ) : (
               <div className="flex gap-3">
                 <button
@@ -348,12 +356,6 @@ export default function AlbumCreatorDialog({
                   disabled={!albumName || totalSize > 4 * 1024 * 1024}
                 >
                   Save Album
-                </button>
-                <button
-                  onClick={handleCancelClick}
-                  className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700"
-                >
-                  Cancel
                 </button>
               </div>
             )}
