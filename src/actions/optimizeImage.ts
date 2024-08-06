@@ -126,25 +126,32 @@ async function processImage(base64Image: string, prompt: string) {
     throw new Error("Image size exceeds the 20 MB limit");
   }
 
-  // Detect the image format using sharp
-  const metadata = await sharp(imageBuffer).metadata();
-  const format = metadata.format;
-
   let finalBuffer;
 
-  if (
-    format === "jpeg" ||
-    format === "png" ||
-    format === "webp" ||
-    format === "tiff"
-  ) {
-    // Convert supported formats to JPEG
-    finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
-  } else if (format === "gif") {
-    // Convert GIF to JPEG
-    finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
-  } else {
-    throw new Error("Unsupported image format");
+  try {
+    // Detect the image format using sharp
+    const metadata = await sharp(imageBuffer).metadata();
+    const format = metadata.format;
+
+    if (
+      format === "jpeg" ||
+      format === "png" ||
+      format === "webp" ||
+      format === "tiff"
+    ) {
+      // Convert supported formats to JPEG
+      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+    } else if (format === "gif") {
+      // Convert GIF to JPEG
+      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+    } else {
+      throw new Error("Unsupported image format");
+    }
+  } catch (error) {
+    console.error("Error processing image:", error);
+    throw new Error(
+      "Failed to process the image. Please make sure it is a valid image file."
+    );
   }
 
   // Convert the final buffer to base64
