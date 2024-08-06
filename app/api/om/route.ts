@@ -9,6 +9,7 @@ import {
 import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
+import { config } from "dotenv";
 
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;

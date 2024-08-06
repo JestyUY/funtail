@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Dialog from "./dialog-modal";
-
+import { optimizeImage, sendChunk } from "../../src/actions/optimizeImages"; // Adjust this import path as needed
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
 
 // Type definitions
@@ -45,6 +45,7 @@ export default function AlbumCreatorDialog({
   const [images, setImages] = useState<ImageData[]>([]);
   const [optimized, setOptimized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalSize, setTotalSize] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOptimizeImages = async () => {
@@ -149,6 +150,7 @@ export default function AlbumCreatorDialog({
       }
     }
   };
+
   const saveImages = async () => {
     const albumId = crypto.randomUUID();
 
@@ -231,6 +233,11 @@ export default function AlbumCreatorDialog({
     }
   };
 
+  useEffect(() => {
+    const total = images.reduce((acc, image) => acc + image.file.size, 0);
+    setTotalSize(total);
+  }, [images]);
+
   return (
     <>
       <div
@@ -276,306 +283,80 @@ export default function AlbumCreatorDialog({
                   key={index}
                   className="flex items-center hover:bg-gray-800 w-full group text-java-50 "
                 >
-                  <div className="flex items-center space-x-2 ">
+                  <div className="flex items-center w-full justify-between hover:bg-gray-800 border-[1px] p-2 rounded-lg border-gray-500">
                     <img
                       src={image.preview}
                       alt={`Preview ${index}`}
-                      className="w-20 h-20 object-cover"
+                      className="w-16 h-16 object-cover rounded-md"
                     />
-                    <span className="text-sm w-[30ch] ">
-                      {image.file.name.slice(0, 60)}
-                      {image.file.name.length > 60 && "..."}
-                    </span>
+                    <div className="flex flex-col items-start flex-grow ml-4">
+                      <span className="text-sm">{image.file.name}</span>
+                      {image.aiSuggestions && (
+                        <span className="text-xs text-gray-400">
+                          {`Optimized to: ${image.aiSuggestions.size.width}x${image.aiSuggestions.size.height}, ${image.aiSuggestions.format} , ${image.aiSuggestions.quality}% quality `}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      className="ml-4 text-red-500 hover:text-red-700"
+                      onClick={() => removeImage(index)}
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <div className="px-2 flex flex-col ">
-                    <div className="w-32  flex justify-between  ">
-                      <label className="" htmlFor="width">
-                        width:
-                      </label>
-                      <input
-                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
-                        type="number"
-                        name="width"
-                        id=""
-                        min={240}
-                        max={1920}
-                        value={image.aiSuggestions?.size.width || ""}
-                        onChange={(e) => {
-                          const width = Number(e.target.value);
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    size: {
-                                      ...img.aiSuggestions?.size,
-                                      width: width,
-                                    },
-                                  },
-                                } as ImageData; // Explicitly cast to ImageData
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-                    <div className="w-32  flex justify-between ">
-                      <label htmlFor="height">height:</label>
-                      <input
-                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
-                        type="number"
-                        name="height"
-                        id=""
-                        min={240}
-                        max={1920}
-                        value={image.aiSuggestions?.size.height || ""}
-                        onChange={(e) => {
-                          const height = Number(e.target.value);
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    size: {
-                                      ...img.aiSuggestions.size,
-                                      height: height,
-                                    },
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="w-44 ">
-                    <div className="flex justify-between">
-                      <label htmlFor="quality">Quality:</label>
-                      <input
-                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
-                        type="number"
-                        name="quality"
-                        id=""
-                        min={0}
-                        max={100}
-                        value={image.aiSuggestions?.quality || ""}
-                        onChange={(e) => {
-                          const quality = Number(e.target.value);
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    quality: quality,
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-between">
-                      <label htmlFor="compression">Compression:</label>
-                      <input
-                        className="w-16 group-hover:bg-gray-700 bg-gray-800 "
-                        type="number"
-                        name="compression"
-                        id=""
-                        min={1}
-                        max={9}
-                        value={image.aiSuggestions?.compressionLevel || ""}
-                        onChange={(e) => {
-                          const compressionLevel = Number(e.target.value);
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    compressionLevel: compressionLevel,
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="w-48 pl-3">
-                    <label htmlFor="grayscale">Grayscale:</label>
-                    <input
-                      className="w-16 group-hover:bg-gray-700 bg-gray-800 "
-                      type="checkbox"
-                      name="grayscale"
-                      id=""
-                      checked={image.aiSuggestions?.grayscale}
-                      onChange={(e) => {
-                        const grayscale = e.target.checked;
-                        setImages((prev: ImageData[]) =>
-                          prev.map((img, idx) => {
-                            if (idx === index && img.aiSuggestions) {
-                              return {
-                                ...img,
-                                aiSuggestions: {
-                                  ...img.aiSuggestions,
-                                  grayscale: grayscale,
-                                },
-                              } as ImageData;
-                            }
-                            return img;
-                          })
-                        );
-                      }}
-                    />
-                    <div>
-                      <label htmlFor="format">Format:</label>
-                      <select
-                        className="w-16 group-hover:bg-gray-700 bg-gray-800"
-                        name="format"
-                        id="format"
-                        value={image.aiSuggestions?.format || ""}
-                        onChange={(e) => {
-                          const format = e.target.value;
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    format: format,
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      >
-                        <option value="JPG">JPG</option>
-                        <option value="PNG">PNG</option>
-                        <option value="webP">WEBP</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="w-[35%] text-sm ">
-                    <div className="flex justify-between">
-                      <label htmlFor="altText">Alt Text:</label>
-                      <input
-                        className=" grow group-hover:bg-gray-700 bg-gray-800 "
-                        type="text"
-                        name="altText"
-                        id=""
-                        value={image.aiSuggestions?.altText || ""}
-                        onChange={(e) => {
-                          const altText = e.target.value;
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    altText: altText,
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between">
-                      <label htmlFor="tags">Tags:</label>
-                      <input
-                        className="grow group-hover:bg-gray-700 bg-gray-800 "
-                        type="text"
-                        name="tags"
-                        id=""
-                        value={
-                          image.aiSuggestions?.tags
-                            ? image.aiSuggestions.tags.join(",")
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const tags = e.target.value.split(",");
-                          setImages((prev: ImageData[]) =>
-                            prev.map((img, idx) => {
-                              if (idx === index && img.aiSuggestions) {
-                                return {
-                                  ...img,
-                                  aiSuggestions: {
-                                    ...img.aiSuggestions,
-                                    tags: tags,
-                                  },
-                                } as ImageData;
-                              }
-                              return img;
-                            })
-                          );
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => removeImage(index)}
-                    className="text-red-600 ml-auto w-16 mr-2 font-medium"
-                  >
-                    Remove
-                  </button>
                 </div>
               ))}
             </div>
+            <div className="flex justify-end">
+              <button
+                className={`mt-2 text-java-300 hover:text-java-200 hover:underline ${
+                  optimized ? "hidden" : ""
+                } `}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Add Images
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="flex justify-between">
-          <div className="mt-4 flex justify-end space-x-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-java-600 text-white px-4 py-2 rounded-md"
-            >
-              Upload Images (Max 20)
-            </button>
-          </div>
-          <div className="mt-4 flex justify-end space-x-2">
-            <button
-              onClick={handleCancelClick}
-              className="bg-gray-300 px-4 py-2 rounded-md"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={images.length === 0 || optimized}
-              onClick={handleOptimizeImages}
-              className="bg-java-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Optimize images
-            </button>
-            <button
-              onClick={saveImages}
-              className="bg-java-600 text-white px-4 py-2 rounded-md  disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!optimized || images.length === 0 || !albumName}
-            >
-              Save Album
-            </button>
+          {totalSize > 4 * 1024 * 1024 && (
+            <p className="text-red-500">
+              Total size of images exceeds 4 MB. Please remove some images.
+            </p>
+          )}
+          <div className="flex justify-end mt-4">
+            {!optimized ? (
+              <button
+                className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
+                  !albumName || totalSize > 4 * 1024 * 1024
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+                onClick={handleOptimizeImages}
+                disabled={!albumName || totalSize > 4 * 1024 * 1024}
+              >
+                Optimize
+              </button>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
+                    !albumName || totalSize > 4 * 1024 * 1024
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  onClick={saveImages}
+                  disabled={!albumName || totalSize > 4 * 1024 * 1024}
+                >
+                  Save Album
+                </button>
+                <button
+                  onClick={handleCancelClick}
+                  className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </Dialog>
