@@ -336,12 +336,7 @@ export default function AlbumCreatorDialog({
               Optimize
             </button>
             {!optimized ? (
-              <button
-                onClick={handleCancelClick}
-                className="px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ml-3"
-              >
-                Cancel
-              </button>
+              <div></div>
             ) : (
               <div className="flex gap-3">
                 <button
