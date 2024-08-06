@@ -14,6 +14,7 @@ import { config } from "dotenv";
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
 
+export const dynamic = "force-dynamic";
 const sizeSchema = z
   .object({
     width: z.any(),
