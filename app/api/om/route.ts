@@ -11,7 +11,7 @@ import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
 import { config } from "dotenv";
 
-const DAILY_OPTIMIZATION_LIMIT = 250;
+const DAILY_OPTIMIZATION_LIMIT = 30;
 const HOURS_UNTIL_RESET = 24;
 
 export const dynamic = "force-dynamic";

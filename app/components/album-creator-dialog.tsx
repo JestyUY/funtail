@@ -263,7 +263,8 @@ export default function AlbumCreatorDialog({
               }`}
               placeholder="Album Name"
               value={albumName}
-              onChange={(e) => setAlbumName(e.target.value)}
+              onChange={(e) => setAlbumName(e.target.value.slice(0, 20))}
+              maxLength={20}
             />
             {!albumName && (
               <span className="text-red-500 text-sm">Required*</span>
