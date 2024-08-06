@@ -48,147 +48,84 @@ export default function AlbumCreatorDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOptimizeImages = async () => {
-    // Convert blob URLs to base64
-    const imageData = await Promise.all(
-      images.map(async (img) => {
-        const response = await fetch(img.preview);
-        const blob = await response.blob();
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      })
-    );
-
-    const prompt = `
-      Analyze this specific image in detail and provide optimized settings for web use. Consider the following aspects:
-      
-      1. Image Content: Describe the main subject and key elements of the image short answer Max characters 15
-      
-      2. Dimensions: 
-         - keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
-         
-      3. Image Format:
-         - Recommend the best format (webP, PNG or JPG) for a minimum file size and optimal visual quality
-         
-      4. Quality and Compression:
-         - Suggest an optimal quality setting (0-100)
-         - Recommend a compression level (1-9) if applicable
-         
-      5. Color Treatment:
-         - Analyze the current color scheme
-         - Would grayscale be beneficial? Why or why not?
-         - Any other color optimizations?
-      
-      6. Orientation:
-         - Is the image correctly oriented?
-         - If not, suggest rotation in degrees
-      
-      7. Accessibility:
-         - Provide a relevant and descriptive alt text (max characters) for accessibility purposes 
-         - Explain key elements that should be conveyed in the alt text
-      
-      8. Categorization:
-         - Suggest up to 5 relevant tags based on the image content
-         - Explain why each tag is relevant
-      
-      9. Special Considerations:
-         - Any unique characteristics of this image that affect optimization?
-         - Are there any areas of the image that require special attention for web display?
-      
-      Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
-    `;
-
     try {
-      // Process each image individually and gather suggestions
-      const imageSuggestions = await Promise.all(
-        images.map(async (image, imageIndex) => {
-          // Convert blob URL to base64
-          const response = await fetch(image.preview);
+      // Convert blob URLs to base64
+      const imageData = await Promise.all(
+        images.map(async (img) => {
+          const response = await fetch(img.preview);
           const blob = await response.blob();
-          const base64 = await new Promise<string>((resolve) => {
+          return new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
             reader.readAsDataURL(blob);
           });
-
-          // Split the base64 string into chunks
-          const chunkSize = 128 * 1024; // 128KB
-          const chunks = [];
-          for (let i = 0; i < base64.length; i += chunkSize) {
-            chunks.push(base64.slice(i, i + chunkSize));
-          }
-
-          console.log(`Image ${imageIndex + 1}: ${chunks.length} chunks`);
-
-          // Send chunks to server
-          for (let i = 0; i < chunks.length; i++) {
-            const result = await sendChunk(
-              chunks[i],
-              i,
-              chunks.length,
-              prompt,
-              userId
-            );
-            if (!result.success) {
-              throw new Error(
-                `Failed to send chunk ${i + 1}/${chunks.length} for image ${
-                  imageIndex + 1
-                }`
-              );
-            }
-          }
-
-          console.log(
-            `All chunks for image ${imageIndex + 1} sent successfully`
-          );
-
-          // Call server action for optimization
-          const suggestion = await optimizeImage(prompt, userId);
-
-          // Ensure the size property is correctly typed
-          const typedSuggestion: AISuggestions = {
-            ...suggestion,
-            size: {
-              width:
-                typeof (suggestion.size as { width: number }).width === "number"
-                  ? (suggestion.size as { width: number }).width
-                  : 0,
-              height:
-                typeof (suggestion.size as { height: number }).height ===
-                "number"
-                  ? (suggestion.size as { height: number }).height
-                  : 0,
-            },
-            quality:
-              typeof suggestion.quality === "number" ? suggestion.quality : 0,
-            rotation:
-              typeof suggestion.rotation === "number" ? suggestion.rotation : 0,
-            compressionLevel:
-              typeof suggestion.compressionLevel === "number"
-                ? suggestion.compressionLevel
-                : 0,
-            grayscale:
-              typeof suggestion.grayscale === "boolean"
-                ? suggestion.grayscale
-                : false,
-            altText:
-              typeof suggestion.altText === "string" ? suggestion.altText : "",
-            format:
-              typeof suggestion.format === "string" ? suggestion.format : "",
-            tags: Array.isArray(suggestion.tags) ? suggestion.tags : [],
-          };
-
-          return {
-            ...image,
-            aiSuggestions: typedSuggestion,
-          };
         })
       );
 
+      const prompt = `
+        Analyze this specific image in detail and provide optimized settings for web use. Consider the following aspects:
+        
+        1. Image Content: Describe the main subject and key elements of the image short answer Max characters 15
+        
+        2. Dimensions: 
+           - keeping the aspect ratio intact, recommend ideal dimensions width and height for web display keeping the Aspect Ratio intact
+           
+        3. Image Format:
+           - Recommend the best format (webP, PNG or JPG) for a minimum file size and optimal visual quality
+           
+        4. Quality and Compression:
+           - Suggest an optimal quality setting (0-100)
+           - Recommend a compression level (1-9) if applicable
+           
+        5. Color Treatment:
+           - Analyze the current color scheme
+           - Would grayscale be beneficial? Why or why not?
+           - Any other color optimizations?
+        
+        6. Orientation:
+           - Is the image correctly oriented?
+           - If not, suggest rotation in degrees
+        
+        7. Accessibility:
+           - Provide a relevant and descriptive alt text (max characters) for accessibility purposes 
+           - Explain key elements that should be conveyed in the alt text
+        
+        8. Categorization:
+           - Suggest up to 5 relevant tags based on the image content
+           - Explain why each tag is relevant
+        
+        9. Special Considerations:
+           - Any unique characteristics of this image that affect optimization?
+           - Are there any areas of the image that require special attention for web display?
+        
+        Prioritize web performance while maintaining good visual quality. Provide a brief explanation for each of your recommendations, focusing on how they relate to this specific image.
+      `;
+
+      // Send all images to the API in a single request
+      const response = await fetch("/api/om", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          images: imageData,
+          prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const suggestions = await response.json();
+
       // Update state with optimized images
+      const imageSuggestions = images.map((image, index) => ({
+        ...image,
+        aiSuggestions: suggestions[index],
+      }));
+
       setImages(imageSuggestions);
       setOptimized(true);
     } catch (error) {
@@ -203,9 +140,6 @@ export default function AlbumCreatorDialog({
             break;
           case "Invalid input data":
             setError("Invalid input data.");
-            break;
-          case "Image data not found":
-            setError("Failed to retrieve image data. Please try again.");
             break;
           default:
             setError(`An error occurred: ${error.message}`);
