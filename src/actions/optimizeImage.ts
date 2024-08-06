@@ -157,11 +157,29 @@ export async function optimizeImage(prompt: string, userId: string) {
       throw new Error("Image size exceeds the 20 MB limit");
     }
 
-    // Convert the image to JPEG format using sharp
-    const jpegBuffer = await sharp(imageBuffer).jpeg().toBuffer();
+    // Detect the image format using sharp
+    const metadata = await sharp(imageBuffer).metadata();
+    const format = metadata.format;
 
-    // Convert the JPEG buffer to base64
-    const base64JpegImage = jpegBuffer.toString("base64");
+    let finalBuffer;
+
+    if (
+      format === "jpeg" ||
+      format === "png" ||
+      format === "webp" ||
+      format === "tiff"
+    ) {
+      // Convert supported formats to JPEG
+      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+    } else if (format === "gif") {
+      // Convert GIF to JPEG
+      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+    } else {
+      throw new Error("Unsupported image format");
+    }
+
+    // Convert the final buffer to base64
+    const base64JpegImage = finalBuffer.toString("base64");
 
     const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
 
