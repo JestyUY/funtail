@@ -28,7 +28,7 @@ export default function HighlightedText() {
   }, [highlightWords.length]);
 
   return (
-    <h1 className="text-6xl text-java-50">
+    <h1 className="text-5xl lg:text-6xl text-java-50">
       {words.map((word, index) => (
         <span
           key={index}
