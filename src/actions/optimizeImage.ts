@@ -102,6 +102,7 @@ export async function sendChunk(
     };
   }
 }
+
 export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
@@ -125,20 +126,22 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     const key = `image:${userId}:${prompt}`;
-    const chunks = await kv.hgetall(key);
+    const chunkCount = await kv.hlen(key);
 
-    console.log("Retrieved chunks:", chunks);
-    if (!chunks || Object.keys(chunks).length === 0) {
+    if (chunkCount === 0) {
       throw new Error("Image data not found");
     }
-    const base64Image = Object.entries(chunks as Record<string, string>)
-      .sort(([a], [b]) => {
-        const aIndex = parseInt(a.split(":")[1]);
-        const bIndex = parseInt(b.split(":")[1]);
-        return aIndex - bIndex;
-      })
-      .map(([_, chunk]) => chunk)
-      .join("");
+
+    const chunks: string[] = [];
+
+    for (let i = 0; i < chunkCount; i++) {
+      const chunk = await kv.hget(key, `chunk:${i}`);
+      if (chunk !== undefined) {
+        chunks.push(chunk);
+      }
+    }
+
+    const base64Image = chunks.join("");
 
     console.log("Reassembled base64 image length:", base64Image.length);
 

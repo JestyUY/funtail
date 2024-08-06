@@ -115,7 +115,7 @@ export default function AlbumCreatorDialog({
           });
 
           // Split the base64 string into chunks
-          const chunkSize = 512 * 1024;
+          const chunkSize = 128 * 1024; // 128KB
           const chunks = [];
           for (let i = 0; i < base64.length; i += chunkSize) {
             chunks.push(base64.slice(i, i + chunkSize));
