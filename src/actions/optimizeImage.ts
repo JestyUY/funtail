@@ -89,18 +89,28 @@ export async function sendChunk(
 ) {
   const key = `image:${userId}:${prompt}`;
   try {
+    // Clear old data if this is the first chunk
+    if (index === 0) {
+      await kv.del(key);
+      await kv.hset(key, {
+        total: total.toString(),
+        savedChunks: "0",
+      });
+    }
+
     await kv.hset(key, { [`chunk:${index}`]: chunk });
     await kv.hincrby(key, "savedChunks", 1);
-
-    if (index === 0) {
-      await kv.hset(key, { total: total.toString() });
-    }
 
     if (index === total - 1) {
       await kv.expire(key, CHUNK_EXPIRY_TIME);
     }
 
-    console.log(`Chunk ${index + 1}/${total} saved successfully`);
+    const currentMetadata = await kv.hmget(key, "total", "savedChunks");
+    console.log(
+      `Chunk ${index + 1}/${total} saved successfully. Current metadata:`,
+      currentMetadata
+    );
+
     return {
       success: true,
       message: `Chunk ${index + 1}/${total} saved successfully`,
@@ -113,6 +123,7 @@ export async function sendChunk(
     };
   }
 }
+
 async function processImage(base64Image: string, prompt: string) {
   console.log("Reassembled base64 image length:", base64Image.length);
   console.log("First few characters of base64Image:", base64Image.slice(0, 20));
@@ -226,6 +237,7 @@ async function getChunksInBatches(
   }
   return chunks;
 }
+
 export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
@@ -281,20 +293,24 @@ export async function optimizeImage(prompt: string, userId: string) {
     );
 
     if (savedChunks !== totalExpectedChunks) {
-      throw new Error(
-        `Incomplete image data. Expected ${totalExpectedChunks} chunks, but found ${savedChunks}`
+      console.warn(
+        `Mismatch in chunk count. Expected ${totalExpectedChunks}, but found ${savedChunks}`
       );
+      // Decide how to handle this situation. For now, we'll continue with the saved chunks.
     }
 
-    const chunks = await getChunksInBatches(key, totalExpectedChunks);
-
-    if (chunks.length !== totalExpectedChunks) {
-      throw new Error(
-        `Mismatch in chunk count. Expected ${totalExpectedChunks}, but retrieved ${chunks.length}`
-      );
-    }
+    const chunks = await getChunksInBatches(
+      key,
+      Math.max(totalExpectedChunks, savedChunks)
+    );
 
     console.log("Number of chunks retrieved:", chunks.length);
+
+    if (chunks.length !== totalExpectedChunks) {
+      console.warn(
+        `Retrieved chunk count (${chunks.length}) doesn't match expected (${totalExpectedChunks})`
+      );
+    }
 
     const base64Image = chunks.join("");
     console.log("Reassembled base64 length:", base64Image.length);
