@@ -102,16 +102,18 @@ export async function sendChunk(
     }
 
     await kv.hset(key, { [`chunk:${index}`]: chunk });
-    await kv.hincrby(key, "savedChunks", 1);
+
+    // Use atomic operation to increment savedChunks
+    const savedChunks = await kv.hincrby(key, "savedChunks", 1);
 
     if (index === total - 1) {
       await kv.expire(key, CHUNK_EXPIRY_TIME);
     }
 
-    const currentMetadata = await kv.hmget(key, "total", "savedChunks");
     console.log(
-      `Chunk ${index + 1}/${total} saved successfully. Current metadata:`,
-      currentMetadata
+      `Chunk ${
+        index + 1
+      }/${total} saved successfully. Current savedChunks: ${savedChunks}`
     );
 
     return {
@@ -128,7 +130,6 @@ export async function sendChunk(
     };
   }
 }
-
 async function processImage(base64Image: string, prompt: string) {
   console.log("Reassembled base64 image length:", base64Image.length);
   console.log("First few characters of base64Image:", base64Image.slice(0, 20));
@@ -309,7 +310,7 @@ export async function optimizeImage(
       `Total expected chunks: ${totalExpectedChunks}, Saved chunks: ${savedChunks}`
     );
 
-    if (savedChunks !== totalExpectedChunks) {
+    if (savedChunks < totalExpectedChunks) {
       throw new Error(
         `Incomplete image data. Expected ${totalExpectedChunks} chunks, but found ${savedChunks}`
       );
