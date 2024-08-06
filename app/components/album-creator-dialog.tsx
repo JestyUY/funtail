@@ -320,7 +320,7 @@ export default function AlbumCreatorDialog({
           </div>
           {totalSize > 4 * 1024 * 1024 && (
             <p className="text-red-500">
-              Total size of images exceeds 4 MB. Please remove some images.
+              Total size of images exceeds 3 MB. Please remove some images.
             </p>
           )}
           <div className="flex justify-end mt-4">
@@ -334,12 +334,12 @@ export default function AlbumCreatorDialog({
                 </button>
                 <button
                   className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
-                    !albumName || totalSize > 4 * 1024 * 1024
+                    !albumName || totalSize > 3 * 1024 * 1024
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                   onClick={handleOptimizeImages}
-                  disabled={!albumName || totalSize > 4 * 1024 * 1024}
+                  disabled={!albumName || totalSize > 3 * 1024 * 1024}
                 >
                   Optimize
                 </button>
@@ -348,12 +348,12 @@ export default function AlbumCreatorDialog({
               <div className="flex gap-3">
                 <button
                   className={`px-4 py-2 bg-java-900 text-white rounded-md hover:bg-java-700 ${
-                    !albumName || totalSize > 4 * 1024 * 1024
+                    !albumName || totalSize > 3 * 1024 * 1024
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                   onClick={saveImages}
-                  disabled={!albumName || totalSize > 4 * 1024 * 1024}
+                  disabled={!albumName || totalSize > 3 * 1024 * 1024}
                 >
                   Save Album
                 </button>
