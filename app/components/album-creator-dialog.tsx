@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Dialog from "./dialog-modal";
-import { optimizeImage, sendChunk } from "../../src/actions/optimizeImage"; // Adjust this import path as needed
+
 import { checkAlbumQuantity } from "@/src/db/checkAlbumsQuantity";
 
 // Type definitions
