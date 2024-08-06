@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
 import { kv } from "@vercel/kv";
+import sharp from "sharp";
 
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
@@ -148,15 +149,6 @@ export async function optimizeImage(prompt: string, userId: string) {
     // Convert the base64 image to a buffer
     const imageBuffer = Buffer.from(base64Image, "base64");
 
-    // Check if the image buffer is a valid JPEG
-    const isJpeg = imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8;
-
-    if (!isJpeg) {
-      throw new Error(
-        "Unsupported image format. Only JPEG images are supported."
-      );
-    }
-
     // Check the image size using the buffer length
     const imageSizeInBytes = imageBuffer.length;
     const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
@@ -165,7 +157,13 @@ export async function optimizeImage(prompt: string, userId: string) {
       throw new Error("Image size exceeds the 20 MB limit");
     }
 
-    const base64ImageWithPrefix = `data:image/jpeg;base64,${base64Image}`;
+    // Convert the image to JPEG format using sharp
+    const jpegBuffer = await sharp(imageBuffer).jpeg().toBuffer();
+
+    // Convert the JPEG buffer to base64
+    const base64JpegImage = jpegBuffer.toString("base64");
+
+    const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
 
     const { object: suggestion } = await generateObject<OptimizationSchemaType>(
       {
