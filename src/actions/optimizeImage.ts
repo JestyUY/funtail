@@ -136,7 +136,7 @@ export async function optimizeImage(prompt: string, userId: string) {
 
     for (let i = 0; i < chunkCount; i++) {
       const chunk = await kv.hget(key, `chunk:${i}`);
-      if (chunk !== undefined) {
+      if (typeof chunk === "string") {
         chunks.push(chunk);
       }
     }
