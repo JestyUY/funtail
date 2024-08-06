@@ -127,7 +127,9 @@ export async function optimizeImage(prompt: string, userId: string) {
     const key = `image:${userId}:${prompt}`;
     const chunks = await kv.hgetall(key);
 
-    if (!chunks) {
+    console.log("Retrieved chunks:", chunks);
+
+    if (!chunks || Object.keys(chunks).length === 0) {
       throw new Error("Image data not found");
     }
 
@@ -135,6 +137,8 @@ export async function optimizeImage(prompt: string, userId: string) {
       .sort(([a], [b]) => parseInt(a) - parseInt(b))
       .map(([_, chunk]) => chunk)
       .join("");
+
+    console.log("Reassembled base64 image length:", base64Image.length);
 
     const { object: suggestion } = await generateObject<OptimizationSchemaType>(
       {
@@ -163,9 +167,6 @@ export async function optimizeImage(prompt: string, userId: string) {
     return suggestion;
   } catch (error) {
     console.error("Error in optimizeImage:", error);
-    if (error instanceof z.ZodError) {
-      throw new Error("Invalid input data");
-    }
     throw error;
   }
 }
