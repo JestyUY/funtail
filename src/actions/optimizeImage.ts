@@ -126,10 +126,6 @@ async function processImage(base64Image: string, prompt: string) {
     throw new Error("Image size exceeds the 20 MB limit");
   }
 
-  // Save the image buffer as a file for debugging purposes
-  const fs = require("fs");
-  fs.writeFileSync("debug_image.png", imageBuffer);
-
   // Detect the image format using sharp
   const metadata = await sharp(imageBuffer).metadata();
   const format = metadata.format;
