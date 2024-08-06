@@ -91,6 +91,7 @@ export async function sendChunk(
     if (index === total - 1) {
       await kv.expire(key, 600); // Expire after 10 minutes
     }
+    console.log(`Chunk ${index + 1}/${total} saved successfully`);
     return {
       success: true,
       message: `Chunk ${index + 1}/${total} saved successfully`,
@@ -110,71 +111,86 @@ async function processImage(base64Image: string, prompt: string) {
 
   let imageBuffer;
 
-  if (base64Image.includes("data:image/png;base64,")) {
-    const base64Data = base64Image.split("data:image/png;base64,")[1];
-    imageBuffer = Buffer.from(base64Data, "base64");
-  } else {
-    // If the base64Image doesn't contain the complete prefix, assume it's just the base64 data
-    imageBuffer = Buffer.from(base64Image, "base64");
-  }
-
-  // Check the image size using the buffer length
-  const imageSizeInBytes = imageBuffer.length;
-  const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
-
-  if (imageSizeInMB > 20) {
-    throw new Error("Image size exceeds the 20 MB limit");
-  }
-
-  let finalBuffer;
-
   try {
-    // Detect the image format using sharp
-    const metadata = await sharp(imageBuffer).metadata();
-    const format = metadata.format;
-
-    if (
-      format === "jpeg" ||
-      format === "png" ||
-      format === "webp" ||
-      format === "tiff"
-    ) {
-      // Convert supported formats to JPEG
-      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
-    } else if (format === "gif") {
-      // Convert GIF to JPEG
-      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+    if (base64Image.includes("data:image/png;base64,")) {
+      const base64Data = base64Image.split("data:image/png;base64,")[1];
+      imageBuffer = Buffer.from(base64Data, "base64");
     } else {
-      throw new Error("Unsupported image format");
+      imageBuffer = Buffer.from(base64Image, "base64");
     }
-  } catch (error) {
-    console.error("Error processing image:", error);
-    throw new Error(
-      "Failed to process the image. Please make sure it is a valid image file."
-    );
-  }
 
-  // Convert the final buffer to base64
-  const base64JpegImage = finalBuffer.toString("base64");
+    console.log("Image buffer length:", imageBuffer.length);
 
-  const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
+    if (imageBuffer.length === 0) {
+      throw new Error("Image buffer is empty after conversion from base64");
+    }
 
-  const { object: suggestion } = await generateObject<OptimizationSchemaType>({
-    model: openai("gpt-4o"),
-    maxTokens: 1500,
-    schema: optimizationSchema,
-    messages: [
+    // Check the image size using the buffer length
+    const imageSizeInBytes = imageBuffer.length;
+    const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
+
+    if (imageSizeInMB > 20) {
+      throw new Error("Image size exceeds the 20 MB limit");
+    }
+
+    let finalBuffer;
+
+    try {
+      // Detect the image format using sharp
+      const metadata = await sharp(imageBuffer).metadata();
+      console.log("Image metadata:", metadata);
+      const format = metadata.format;
+
+      if (
+        format === "jpeg" ||
+        format === "png" ||
+        format === "webp" ||
+        format === "tiff"
+      ) {
+        // Convert supported formats to JPEG
+        finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+      } else if (format === "gif") {
+        // Convert GIF to JPEG
+        finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+      } else {
+        throw new Error("Unsupported image format");
+      }
+
+      console.log("Final buffer length:", finalBuffer.length);
+    } catch (error) {
+      console.error("Error processing image with Sharp:", error);
+      throw new Error(
+        "Failed to process the image. Please make sure it is a valid image file."
+      );
+    }
+
+    // Convert the final buffer to base64
+    const base64JpegImage = finalBuffer.toString("base64");
+
+    const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
+
+    const { object: suggestion } = await generateObject<OptimizationSchemaType>(
       {
-        role: "user",
-        content: [
-          { type: "text", text: prompt },
-          { type: "image", image: base64ImageWithPrefix },
+        model: openai("gpt-4o"),
+        maxTokens: 1500,
+        schema: optimizationSchema,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image", image: base64ImageWithPrefix },
+            ],
+          },
         ],
-      },
-    ],
-  });
+      }
+    );
 
-  return suggestion;
+    return suggestion;
+  } catch (error) {
+    console.error("Error in processImage:", error);
+    throw error;
+  }
 }
 
 export async function optimizeImage(prompt: string, userId: string) {
@@ -202,6 +218,8 @@ export async function optimizeImage(prompt: string, userId: string) {
     const key = `image:${userId}:${prompt}`;
     const chunkCount = await kv.hlen(key);
 
+    console.log("Number of chunks stored:", chunkCount);
+
     if (chunkCount === 0) {
       throw new Error("Image data not found");
     }
@@ -212,10 +230,15 @@ export async function optimizeImage(prompt: string, userId: string) {
       const chunk = await kv.hget(key, `chunk:${i}`);
       if (typeof chunk === "string") {
         chunks.push(chunk);
+      } else {
+        console.error(`Chunk ${i} is not a string:`, chunk);
       }
     }
 
+    console.log("Number of chunks retrieved:", chunks.length);
     const base64Image = chunks.join("");
+    console.log("Reassembled base64 length:", base64Image.length);
+
     const suggestion = await processImage(base64Image, prompt);
 
     await Promise.all([
