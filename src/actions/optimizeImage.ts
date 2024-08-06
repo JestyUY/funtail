@@ -16,6 +16,7 @@ import sharp from "sharp";
 
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
+const CHUNK_EXPIRY_TIME = 600; // 10 minutes in seconds
 
 const sizeSchema = z
   .object({
@@ -87,10 +88,14 @@ export async function sendChunk(
 ) {
   const key = `image:${userId}:${prompt}`;
   try {
-    await kv.hset(key, { [`chunk:${index}`]: chunk, total: total.toString() });
+    await kv.hset(key, { [`chunk:${index}`]: chunk });
+    await kv.hincrby(key, "savedChunks", 1);
+
     if (index === total - 1) {
-      await kv.expire(key, 600); // Expire after 10 minutes
+      await kv.hset(key, { total: total.toString() });
+      await kv.expire(key, CHUNK_EXPIRY_TIME);
     }
+
     console.log(`Chunk ${index + 1}/${total} saved successfully`);
     return {
       success: true,
@@ -217,31 +222,29 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     const key = `image:${userId}:${prompt}`;
-    const chunkCount = await kv.hlen(key);
-    const totalExpectedChunks = parseInt(
-      (await kv.hget(key, "total")) as string,
-      10
-    );
+    const allData = await kv.hgetall(key);
+    console.log("All data from KV:", allData);
 
-    console.log("Number of chunks stored:", chunkCount);
-
-    if (chunkCount === 0) {
+    if (!allData) {
       throw new Error("Image data not found");
     }
 
-    if (chunkCount - 1 !== totalExpectedChunks) {
-      // -1 because 'total' is also a field
+    const totalExpectedChunks = parseInt(allData.total as string, 10);
+    const savedChunks = parseInt(allData.savedChunks as string, 10);
+    console.log(
+      `Total expected chunks: ${totalExpectedChunks}, Saved chunks: ${savedChunks}`
+    );
+
+    if (savedChunks !== totalExpectedChunks) {
       throw new Error(
-        `Incomplete image data. Expected ${totalExpectedChunks} chunks, but found ${
-          chunkCount - 1
-        }`
+        `Incomplete image data. Expected ${totalExpectedChunks} chunks, but found ${savedChunks}`
       );
     }
 
     const chunks: string[] = [];
 
     for (let i = 0; i < totalExpectedChunks; i++) {
-      const chunk = await kv.hget(key, `chunk:${i}`);
+      const chunk = allData[`chunk:${i}`];
       if (typeof chunk === "string") {
         chunks.push(chunk);
       } else {
@@ -251,11 +254,6 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     console.log("Number of chunks retrieved:", chunks.length);
-    if (chunks.length !== totalExpectedChunks) {
-      throw new Error(
-        `Mismatch in chunk count. Expected ${totalExpectedChunks}, but retrieved ${chunks.length}`
-      );
-    }
 
     const base64Image = chunks.join("");
     console.log("Reassembled base64 length:", base64Image.length);
