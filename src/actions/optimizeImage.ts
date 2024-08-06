@@ -145,6 +145,12 @@ export async function optimizeImage(prompt: string, userId: string) {
     const base64Image = chunks.join("");
 
     console.log("Reassembled base64 image length:", base64Image.length);
+    console.log(
+      "First few characters of base64Image:",
+      base64Image.slice(0, 20)
+    );
+
+    console.log("Reassembled base64 image length:", base64Image.length);
 
     // Convert the base64 image to a buffer
     const imageBuffer = Buffer.from(base64Image, "base64");
