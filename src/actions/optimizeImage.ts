@@ -17,7 +17,7 @@ import sharp from "sharp";
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
 const CHUNK_EXPIRY_TIME = 600; // 10 minutes in seconds
-const BATCH_SIZE = 10; // Number of chunks to retrieve in each batch
+const BATCH_SIZE = 50; // Adjust this value based on your average chunk size
 
 const sizeSchema = z
   .object({
@@ -218,21 +218,23 @@ async function getChunksInBatches(
   totalChunks: number
 ): Promise<string[]> {
   const chunks: string[] = [];
+
   for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
     const batchKeys = Array.from(
       { length: Math.min(BATCH_SIZE, totalChunks - i) },
       (_, index) => `chunk:${i + index}`
     );
-    const batchData = await kv.hmget(key, ...batchKeys);
-
-    if (batchData) {
-      Object.values(batchData).forEach((chunk) => {
-        if (typeof chunk === "string") {
-          chunks.push(chunk);
-        }
-      });
-    } else {
-      console.error(`Failed to retrieve batch starting at index ${i}`);
+    try {
+      const batchData = await kv.hmget(key, ...batchKeys);
+      if (batchData) {
+        Object.values(batchData).forEach((chunk) => {
+          if (typeof chunk === "string") {
+            chunks.push(chunk);
+          }
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to retrieve batch starting at index ${i}:`, error);
     }
   }
   return chunks;
@@ -296,35 +298,36 @@ export async function optimizeImage(prompt: string, userId: string) {
       console.warn(
         `Mismatch in chunk count. Expected ${totalExpectedChunks}, but found ${savedChunks}`
       );
-      // Decide how to handle this situation. For now, we'll continue with the saved chunks.
-    }
+      // Use the lower value to avoid errors
+      const chunksToRetrieve = Math.min(totalExpectedChunks, savedChunks);
+      console.log(`Retrieving ${chunksToRetrieve} chunks`);
+      const chunks = await getChunksInBatches(key, chunksToRetrieve);
+      console.log("Number of chunks retrieved:", chunks.length);
 
-    const chunks = await getChunksInBatches(
-      key,
-      Math.max(totalExpectedChunks, savedChunks)
-    );
+      if (chunks.length !== chunksToRetrieve) {
+        throw new Error(
+          `Retrieved chunk count (${chunks.length}) doesn't match expected (${chunksToRetrieve})`
+        );
+      }
 
-    console.log("Number of chunks retrieved:", chunks.length);
+      const base64Image = chunks.join("");
+      console.log("Reassembled base64 length:", base64Image.length);
 
-    if (chunks.length !== totalExpectedChunks) {
-      console.warn(
-        `Retrieved chunk count (${chunks.length}) doesn't match expected (${totalExpectedChunks})`
+      const suggestion = await processImage(base64Image, prompt);
+
+      await Promise.all([
+        optimizationQuantity(userId, 1),
+        lastOptimization(userId),
+        shouldReset ? setResetOptimization(userId) : Promise.resolve(),
+        kv.del(key),
+      ]);
+
+      return suggestion;
+    } else {
+      throw new Error(
+        "Unexpected mismatch in chunk count. Please try uploading the image again."
       );
     }
-
-    const base64Image = chunks.join("");
-    console.log("Reassembled base64 length:", base64Image.length);
-
-    const suggestion = await processImage(base64Image, prompt);
-
-    await Promise.all([
-      optimizationQuantity(userId, 1),
-      lastOptimization(userId),
-      shouldReset ? setResetOptimization(userId) : Promise.resolve(),
-      kv.del(key),
-    ]);
-
-    return suggestion;
   } catch (error) {
     console.error("Error in optimizeImage:", error);
     throw error;
