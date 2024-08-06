@@ -85,17 +85,19 @@ export async function sendChunk(
   index: number,
   total: number,
   prompt: string,
-  userId: string
+  userId: string,
+  uploadId?: string
 ) {
-  const uploadId = `${userId}:${Date.now()}`;
-  const key = `image:${uploadId}:${prompt}`;
+  const key = uploadId
+    ? `image:${uploadId}:${prompt}`
+    : `image:${userId}:${prompt}`;
   try {
     if (index === 0) {
       await kv.del(key);
       await kv.hset(key, {
         total: total.toString(),
         savedChunks: "0",
-        uploadId,
+        uploadId: uploadId || userId,
       });
     }
 
@@ -115,14 +117,14 @@ export async function sendChunk(
     return {
       success: true,
       message: `Chunk ${index + 1}/${total} saved successfully`,
-      uploadId,
+      uploadId: uploadId || userId,
     };
   } catch (error) {
     console.error(`Error saving chunk ${index + 1}/${total}:`, error);
     return {
       success: false,
       message: `Failed to save chunk ${index + 1}/${total}`,
-      uploadId,
+      uploadId: uploadId || userId,
     };
   }
 }
@@ -246,7 +248,7 @@ async function getChunksInBatches(
 export async function optimizeImage(
   prompt: string,
   userId: string,
-  uploadId: string
+  uploadId?: string
 ) {
   try {
     const session = await auth();
@@ -269,13 +271,19 @@ export async function optimizeImage(
       throw new Error("You have reached the limit of optimizations");
     }
 
-    const key = `image:${uploadId}:${prompt}`;
+    const key = uploadId
+      ? `image:${uploadId}:${prompt}`
+      : `image:${userId}:${prompt}`;
     console.log("Retrieving metadata for key:", key);
     const metadata = await kv.hmget(key, "total", "savedChunks", "uploadId");
     console.log("Retrieved metadata:", metadata);
 
-    if (!metadata || metadata.uploadId !== uploadId) {
-      throw new Error("No metadata found or invalid upload ID");
+    if (!metadata) {
+      throw new Error("No metadata found");
+    }
+
+    if (uploadId && metadata.uploadId !== uploadId) {
+      throw new Error("Invalid upload ID");
     }
 
     const totalExpectedChunks = metadata.total
