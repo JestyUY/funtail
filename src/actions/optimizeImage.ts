@@ -12,7 +12,6 @@ import { auth } from "@/lib/auth";
 import { selecUserInfo } from "@/src/actions/selectUserInfo";
 import { User } from "@/app/types/user";
 import { kv } from "@vercel/kv";
-import sharp from "sharp";
 
 const DAILY_OPTIMIZATION_LIMIT = 200;
 const HOURS_UNTIL_RESET = 24;
@@ -149,71 +148,50 @@ export async function optimizeImage(prompt: string, userId: string) {
     // Convert the base64 image to a buffer
     const imageBuffer = Buffer.from(base64Image, "base64");
 
-    // Check the image size and format using sharp
-    const metadata = await sharp(imageBuffer).metadata();
+    // Check if the image buffer is a valid JPEG
+    const isJpeg = imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8;
 
-    if (metadata.size && metadata.size > 20 * 1024 * 1024) {
+    if (!isJpeg) {
+      throw new Error(
+        "Unsupported image format. Only JPEG images are supported."
+      );
+    }
+
+    // Check the image size using the buffer length
+    const imageSizeInBytes = imageBuffer.length;
+    const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
+
+    if (imageSizeInMB > 20) {
       throw new Error("Image size exceeds the 20 MB limit");
     }
 
-    if (metadata.format !== "jpeg") {
-      // Convert the image to JPEG format
-      const jpegBuffer = await sharp(imageBuffer).jpeg().toBuffer();
-      const jpegBase64 = jpegBuffer.toString("base64");
-      const jpegBase64Image = `data:image/jpeg;base64,${jpegBase64}`;
+    const base64ImageWithPrefix = `data:image/jpeg;base64,${base64Image}`;
 
-      const { object: suggestion } =
-        await generateObject<OptimizationSchemaType>({
-          model: openai("gpt-4o"),
-          maxTokens: 1500,
-          schema: optimizationSchema,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image", image: jpegBase64Image },
-              ],
-            },
-          ],
-        });
+    const { object: suggestion } = await generateObject<OptimizationSchemaType>(
+      {
+        model: openai("gpt-4o"),
+        maxTokens: 1500,
+        schema: optimizationSchema,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image", image: base64ImageWithPrefix },
+            ],
+          },
+        ],
+      }
+    );
 
-      await Promise.all([
-        optimizationQuantity(userId, 1),
-        lastOptimization(userId),
-        shouldReset ? setResetOptimization(userId) : Promise.resolve(),
-        kv.del(key),
-      ]);
+    await Promise.all([
+      optimizationQuantity(userId, 1),
+      lastOptimization(userId),
+      shouldReset ? setResetOptimization(userId) : Promise.resolve(),
+      kv.del(key),
+    ]);
 
-      return suggestion;
-    } else {
-      const base64ImageWithPrefix = `data:image/jpeg;base64,${base64Image}`;
-
-      const { object: suggestion } =
-        await generateObject<OptimizationSchemaType>({
-          model: openai("gpt-4o"),
-          maxTokens: 1500,
-          schema: optimizationSchema,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                { type: "image", image: base64ImageWithPrefix },
-              ],
-            },
-          ],
-        });
-
-      await Promise.all([
-        optimizationQuantity(userId, 1),
-        lastOptimization(userId),
-        shouldReset ? setResetOptimization(userId) : Promise.resolve(),
-        kv.del(key),
-      ]);
-
-      return suggestion;
-    }
+    return suggestion;
   } catch (error) {
     console.error("Error in optimizeImage:", error);
     throw error;
