@@ -86,7 +86,7 @@ export async function sendChunk(
 ) {
   const key = `image:${userId}:${prompt}`;
   try {
-    await kv.hset(key, { [index]: chunk });
+    await kv.hset(key, { [`chunk:${index}`]: chunk });
     if (index === total - 1) {
       await kv.expire(key, 600); // Expire after 10 minutes
     }
@@ -128,13 +128,15 @@ export async function optimizeImage(prompt: string, userId: string) {
     const chunks = await kv.hgetall(key);
 
     console.log("Retrieved chunks:", chunks);
-
     if (!chunks || Object.keys(chunks).length === 0) {
       throw new Error("Image data not found");
     }
-
-    const base64Image = Object.entries(chunks)
-      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+    const base64Image = Object.entries(chunks as Record<string, string>)
+      .sort(([a], [b]) => {
+        const aIndex = parseInt(a.split(":")[1]);
+        const bIndex = parseInt(b.split(":")[1]);
+        return aIndex - bIndex;
+      })
       .map(([_, chunk]) => chunk)
       .join("");
 
