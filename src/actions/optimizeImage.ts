@@ -104,6 +104,76 @@ export async function sendChunk(
   }
 }
 
+async function processImage(base64Image: string, prompt: string) {
+  console.log("Reassembled base64 image length:", base64Image.length);
+  console.log("First few characters of base64Image:", base64Image.slice(0, 20));
+
+  let imageBuffer;
+
+  if (base64Image.includes("data:image/png;base64,")) {
+    const base64Data = base64Image.split("data:image/png;base64,")[1];
+    imageBuffer = Buffer.from(base64Data, "base64");
+  } else {
+    // If the base64Image doesn't contain the complete prefix, assume it's just the base64 data
+    imageBuffer = Buffer.from(base64Image, "base64");
+  }
+
+  // Check the image size using the buffer length
+  const imageSizeInBytes = imageBuffer.length;
+  const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
+
+  if (imageSizeInMB > 20) {
+    throw new Error("Image size exceeds the 20 MB limit");
+  }
+
+  // Save the image buffer as a file for debugging purposes
+  const fs = require("fs");
+  fs.writeFileSync("debug_image.png", imageBuffer);
+
+  // Detect the image format using sharp
+  const metadata = await sharp(imageBuffer).metadata();
+  const format = metadata.format;
+
+  let finalBuffer;
+
+  if (
+    format === "jpeg" ||
+    format === "png" ||
+    format === "webp" ||
+    format === "tiff"
+  ) {
+    // Convert supported formats to JPEG
+    finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+  } else if (format === "gif") {
+    // Convert GIF to JPEG
+    finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
+  } else {
+    throw new Error("Unsupported image format");
+  }
+
+  // Convert the final buffer to base64
+  const base64JpegImage = finalBuffer.toString("base64");
+
+  const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
+
+  const { object: suggestion } = await generateObject<OptimizationSchemaType>({
+    model: openai("gpt-4o"),
+    maxTokens: 1500,
+    schema: optimizationSchema,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image", image: base64ImageWithPrefix },
+        ],
+      },
+    ],
+  });
+
+  return suggestion;
+}
+
 export async function optimizeImage(prompt: string, userId: string) {
   try {
     const session = await auth();
@@ -143,68 +213,7 @@ export async function optimizeImage(prompt: string, userId: string) {
     }
 
     const base64Image = chunks.join("");
-
-    console.log("Reassembled base64 image length:", base64Image.length);
-    console.log(
-      "First few characters of base64Image:",
-      base64Image.slice(0, 20)
-    );
-
-    console.log("Reassembled base64 image length:", base64Image.length);
-
-    // Convert the base64 image to a buffer
-    const imageBuffer = Buffer.from(base64Image, "base64");
-
-    // Check the image size using the buffer length
-    const imageSizeInBytes = imageBuffer.length;
-    const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
-
-    if (imageSizeInMB > 20) {
-      throw new Error("Image size exceeds the 20 MB limit");
-    }
-
-    // Detect the image format using sharp
-    const metadata = await sharp(imageBuffer).metadata();
-    const format = metadata.format;
-
-    let finalBuffer;
-
-    if (
-      format === "jpeg" ||
-      format === "png" ||
-      format === "webp" ||
-      format === "tiff"
-    ) {
-      // Convert supported formats to JPEG
-      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
-    } else if (format === "gif") {
-      // Convert GIF to JPEG
-      finalBuffer = await sharp(imageBuffer).toFormat("jpeg").toBuffer();
-    } else {
-      throw new Error("Unsupported image format");
-    }
-
-    // Convert the final buffer to base64
-    const base64JpegImage = finalBuffer.toString("base64");
-
-    const base64ImageWithPrefix = `data:image/jpeg;base64,${base64JpegImage}`;
-
-    const { object: suggestion } = await generateObject<OptimizationSchemaType>(
-      {
-        model: openai("gpt-4o"),
-        maxTokens: 1500,
-        schema: optimizationSchema,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image", image: base64ImageWithPrefix },
-            ],
-          },
-        ],
-      }
-    );
+    const suggestion = await processImage(base64Image, prompt);
 
     await Promise.all([
       optimizationQuantity(userId, 1),
